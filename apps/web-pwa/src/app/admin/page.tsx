@@ -1,7 +1,15 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { Users, AlertTriangle, Battery, Signal } from "lucide-react";
+
+// Map Import
+const LiveMap = dynamic(() => import("@/components/Map/LiveMap"), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-slate-100 animate-pulse rounded-xl" />,
+});
+
 
 export default function AdminDashboard() {
   const stats = [
@@ -9,6 +17,12 @@ export default function AdminDashboard() {
     { label: "SOS Alerts", value: "5", change: "2 Critical", icon: AlertTriangle, color: "red" },
     { label: "Registered Users", value: "12,900", change: "+54 this week", icon: Users, color: "teal" },
     { label: "Low Battery", value: "128", change: "Need Charging", icon: Battery, color: "orange" },
+  ];
+
+  // Dummy data for map pre-demo
+  const mapData = [
+     { id: '1', name: 'User A', lat: 28.61, lon: 77.21, sos: false, role: 'CITIZEN', lastUpdate: new Date().toISOString() },
+     { id: '2', name: 'User B', lat: 28.62, lon: 77.22, sos: true, role: 'CITIZEN', lastUpdate: new Date().toISOString() }
   ];
 
   return (
@@ -46,10 +60,11 @@ export default function AdminDashboard() {
 
       {/* Grid for Maps and Tables */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-[500px]">
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-           <h3 className="font-bold text-slate-800 mb-4">Live Activity Map</h3>
-           <div className="w-full h-full bg-slate-100 rounded-xl flex items-center justify-center text-slate-400">
-             [Map Component Placeholder]
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-6 shadow-sm overflow-hidden">
+           <h3 className="font-bold text-slate-800 mb-4 px-2">Live Activity Map</h3>
+           <div className="w-full h-[400px] rounded-xl overflow-hidden border border-slate-200">
+             {/* @ts-ignore */}
+             <LiveMap users={mapData} />
            </div>
         </div>
         

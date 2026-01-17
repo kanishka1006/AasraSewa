@@ -4,7 +4,7 @@ import { RegisterDto, LoginDto } from './dto/auth.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from './guards/roles.guard';
-import { UserRole } from '../../database/entities/role.entity';
+import { UserRole } from '../database/entities/role.entity';
 
 @Controller('auth')
 export class AuthController {

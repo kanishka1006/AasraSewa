@@ -54,6 +54,9 @@ export class User {
     @OneToMany(() => Rental, (rental) => rental.user)
     rentals: Rental[];
 
+    @OneToMany(() => SosAlert, (alert) => alert.victim)
+    alerts: SosAlert[];
+
     @CreateDateColumn()
     createdAt: Date;
 

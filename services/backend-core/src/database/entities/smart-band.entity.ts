@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
-import { IsMacAddress, IsEnum, Min, Max } from 'class-validator';
+import { IsMACAddress, IsEnum, Min, Max } from 'class-validator';
 import { Rental } from './rental.entity';
 
 export enum BandStatus {
@@ -15,7 +15,7 @@ export class SmartBand {
     id: string;
 
     @Column({ unique: true, length: 17 })
-    @IsMacAddress()
+    @IsMACAddress()
     macAddress: string;
 
     @Column({ unique: true, nullable: true })

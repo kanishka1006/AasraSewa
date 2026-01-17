@@ -1,7 +1,14 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { User, Heart, Settings, Bell, Phone } from "lucide-react";
+
+// Dynamic import for the Map to avoid SSR issues
+const LiveMap = dynamic(() => import("@/components/Map/LiveMap"), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-slate-800 animate-pulse rounded-xl" />,
+});
 
 export default function UserDashboard() {
   const container = {
@@ -16,6 +23,16 @@ export default function UserDashboard() {
     hidden: { opacity: 0, y: 20 },
     show: { opacity: 1, y: 0 }
   };
+
+  const currentUser = [{
+      id: 'current',
+      name: 'You',
+      lat: 28.6139,
+      lon: 77.2090, 
+      sos: false,
+      role: 'CITIZEN',
+      lastUpdate: new Date().toISOString()
+  }];
 
   return (
     <div className="min-h-screen bg-black text-white p-6 relative overflow-hidden">
@@ -71,6 +88,15 @@ export default function UserDashboard() {
                    <div key={i} className="flex-1 bg-red-500/50 rounded-t-sm" style={{ height: `${h}%` }}></div>
                ))}
            </div>
+        </motion.div>
+
+        {/* Live Location Map Widget */}
+        <motion.div variants={item} className="col-span-2 h-64 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden relative">
+            <div className="absolute top-4 left-4 z-[1000] bg-black/60 backdrop-blur px-3 py-1 rounded-full text-xs font-bold border border-white/10">
+                LIVE LOCATION
+            </div>
+             {/* @ts-ignore */}
+            <LiveMap users={currentUser} />
         </motion.div>
 
         {/* Status Cards */}

@@ -27,11 +27,11 @@ export default function LoginPage() {
       if (!res.ok) throw new Error("Invalid credentials");
 
       const data = await res.json();
-      localStorage.setItem("token", data.data.accessToken);
-      localStorage.setItem("user", JSON.stringify(data.data.user));
+      localStorage.setItem("token", data.accessToken);
+      localStorage.setItem("user", JSON.stringify(data.user));
 
       // Redirect based on role
-      if (data.data.user.role.name === "ADMIN" || data.data.user.role.name === "SHELTER_MANAGER") {
+      if (data.user.role === "ADMIN" || data.user.role === "SHELTER_MANAGER") {
         router.push("/admin");
       } else {
         router.push("/dashboard");

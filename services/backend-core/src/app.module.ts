@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
+import { Telemetry } from './database/entities/telemetry.entity';
 import { AuthModule } from './auth/auth.module';
 import { BandModule } from './bands/bands.module';
 import { User } from './database/entities/user.entity';

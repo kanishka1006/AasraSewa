@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
-import { User, UserRole } from '../entities/user.entity'; // Logical import, path may vary
-import { Role } from '../entities/role.entity';
+import * as bcrypt from 'bcrypt';
+import { User } from '../entities/user.entity';
+import { Role, UserRole } from '../entities/role.entity';
 import { SmartBand, BandStatus } from '../entities/smart-band.entity';
 import { Rental, RentalStatus, DepositStatus } from '../entities/rental.entity';
 
@@ -28,10 +29,15 @@ export const seedDatabase = async (dataSource: DataSource) => {
     }
 
     // 2. Seed Users
+
+    const password = 'password123';
+    const salt = await bcrypt.genSalt();
+    const hash = await bcrypt.hash(password, salt);
+
     const adminUser = userRepo.create({
         fullName: 'System Admin',
         phoneNumber: '+919999999999',
-        passwordHash: '$2b$10$EpI...', // bcrypt hash for 'admin123'
+        passwordHash: hash, // Using real hash
         role: savedRoles[UserRole.ADMIN],
         isSafe: true,
     });
@@ -40,7 +46,7 @@ export const seedDatabase = async (dataSource: DataSource) => {
     const citizenUser = userRepo.create({
         fullName: 'Rohan Gupta',
         phoneNumber: '+919876543210',
-        passwordHash: '$2b$10$EpI...',
+        passwordHash: hash, // Using real hash
         role: savedRoles[UserRole.CITIZEN],
         isSafe: true,
     });

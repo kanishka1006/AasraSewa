@@ -1,35 +1,11 @@
 "use client";
 
-import Link from "next/link";
-import { motion, useMotionValue, useTransform, useSpring } from "framer-motion";
-import { ArrowRight, Shield, Activity, Lock, Cpu, Globe } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { Shield, Activity, Lock, ArrowLeft, Loader2 } from "lucide-react";
 
-// --- 3D Card Component ---
-function Card3D({ children, className }: { children: React.ReactNode; className?: string }) {
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-
-  const rotateX = useTransform(y, [-100, 100], [30, -30]);
-  const rotateY = useTransform(x, [-100, 100], [-30, 30]);
-
-  return (
-    <div style={{ perspective: 2000 }}>
-      <motion.div
-        style={{ x, y, rotateX, rotateY, z: 100 }}
-        drag
-        dragElastic={0.16}
-        dragConstraints={{ top: 0, left: 0, right: 0, bottom: 0 }}
-        whileHover={{ cursor: "grabbing" }}
-        className={`relative transform-style-3d transition-all duration-200 ${className}`}
-      >
-        {children}
-      </motion.div>
-    </div>
-  );
-}
-
-// --- Sci-Fi Background Grid ---
+// --- 3D Background Grid ---
 function RetroGrid() {
   return (
     <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
@@ -39,105 +15,193 @@ function RetroGrid() {
   );
 }
 
-export default function LandingPage() {
+export default function LandingLoginPage() {
+  const router = useRouter();
+  const [selectedRole, setSelectedRole] = useState<"ADMIN" | "RESCUE" | null>(null);
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch("http://localhost:3001/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber: phone, password }),
+      });
+
+      if (!res.ok) throw new Error("Access Denied: Invalid Credentials");
+
+      const data = await res.json();
+      localStorage.setItem("token", data.accessToken);
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      // Force redirection based on intent & actual role
+      // If user logs in as Admin but clicks Rescue, we still send them to Admin (security first)
+      if (data.user.role === "ADMIN" || data.user.role === "SHELTER_MANAGER") {
+        router.push("/admin");
+      } else {
+        router.push("/dashboard");
+      }
+    } catch (err: any) {
+      setError(err.message || "Login failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-cyan-500/30 overflow-hidden font-sans">
+    <div className="min-h-screen bg-black text-white selection:bg-cyan-500/30 overflow-hidden font-sans flex flex-col items-center justify-center relative">
       <RetroGrid />
 
-      {/* Hero Section */}
-      <main className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 text-center">
-        
-        {/* Floating Orb / Logo */}
-        <motion.div 
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 260, damping: 20 }}
-            className="mb-10 relative group"
-        >
-             <div className="absolute -inset-1 bg-gradient-to-r from-cyan-400 to-blue-600 rounded-full blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-tilt"></div>
-             <div className="relative w-24 h-24 bg-black rounded-full flex items-center justify-center border border-white/10">
-                 <Globe className="w-12 h-12 text-cyan-400 animate-spin-slow" />
-             </div>
-        </motion.div>
-
-        <motion.h1
-           initial={{ opacity: 0, y: 50, rotateX: -90 }}
-           animate={{ opacity: 1, y: 0, rotateX: 0 }}
-           transition={{ duration: 1, ease: "easeOut" }}
-           className="text-6xl md:text-8xl font-black tracking-tighter mb-6 bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-gray-500"
-        >
+      {/* Header / Logo */}
+      <motion.div 
+        layout 
+        className="relative z-10 flex flex-col items-center mb-12"
+      >
+        <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center border border-white/20 mb-4 shadow-[0_0_50px_rgba(255,255,255,0.1)]">
+           <Activity className="w-8 h-8 text-cyan-400" />
+        </div>
+        <h1 className="text-4xl md:text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-gray-500 text-center">
           AASRA<span className="text-cyan-500">SEWA</span>
-        </motion.h1>
+        </h1>
+        <p className="text-gray-500 text-sm tracking-widest mt-2 uppercase">Secure Access Portal</p>
+      </motion.div>
 
-        <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="text-lg md:text-2xl text-cyan-200/60 max-w-3xl mx-auto mb-12"
-        >
-            Autonomous Disaster Response System
-            <br />
-            <span className="text-sm font-mono text-gray-500 border border-white/10 px-2 py-1 rounded bg-white/5 mt-2 inline-block">
-                SYSTEM_VERSION: v2.4.0-ALPHA
-            </span>
-        </motion.p>
-        
-        {/* 3D Interactive Cards Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl w-full mb-16 px-4">
-            
-            <Card3D className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-3xl shadow-2xl group hover:border-cyan-500/50">
-               <div className="w-12 h-12 bg-cyan-500/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                   <Activity className="w-6 h-6 text-cyan-400" />
-               </div>
-               <h3 className="text-xl font-bold mb-2">Live Telemetry</h3>
-               <p className="text-sm text-gray-400">Real-time biometric monitoring of all rescue units.</p>
-            </Card3D>
+      <AnimatePresence mode="wait">
+        {selectedRole === null ? (
+          // --- ROLE SELECTION VIEW ---
+          <motion.div 
+            key="selection"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9, filter: "blur(10px)" }}
+            className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full px-4"
+          >
+            {/* Admin Option */}
+            <motion.div
+               whileHover={{ scale: 1.02 }}
+               whileTap={{ scale: 0.98 }}
+               onClick={() => setSelectedRole("ADMIN")}
+               className="cursor-pointer group relative overflow-hidden bg-white/5 backdrop-blur-xl border border-white/10 p-10 rounded-3xl flex flex-col items-center text-center hover:border-purple-500/50 transition-all shadow-2xl"
+            >
+                <div className="absolute inset-0 bg-gradient-to-b from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="w-20 h-20 bg-purple-900/30 rounded-2xl flex items-center justify-center mb-6 border border-purple-500/30 group-hover:border-purple-400 group-hover:shadow-[0_0_30px_rgba(168,85,247,0.3)] transition-all">
+                    <Shield className="w-10 h-10 text-purple-400" />
+                </div>
+                <h2 className="text-2xl font-bold mb-2">Admin Command</h2>
+                <p className="text-gray-400 text-sm">Full system control, map oversight, and rescue coordination.</p>
+                <div className="mt-6 px-4 py-2 bg-purple-500/20 rounded-full text-xs font-mono text-purple-300 border border-purple-500/30">
+                    SECURE_LEVEL: 1
+                </div>
+            </motion.div>
 
-            <Card3D className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-3xl shadow-2xl group hover:border-purple-500/50">
-               <div className="w-12 h-12 bg-purple-500/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                   <Cpu className="w-6 h-6 text-purple-400" />
-               </div>
-               <h3 className="text-xl font-bold mb-2">AI Neural Core</h3>
-               <p className="text-sm text-gray-400">Predictive risk modeling and anomaly detection.</p>
-            </Card3D>
+            {/* Rescue Option */}
+            <motion.div
+               whileHover={{ scale: 1.02 }}
+               whileTap={{ scale: 0.98 }}
+               onClick={() => setSelectedRole("RESCUE")}
+               className="cursor-pointer group relative overflow-hidden bg-white/5 backdrop-blur-xl border border-white/10 p-10 rounded-3xl flex flex-col items-center text-center hover:border-cyan-500/50 transition-all shadow-2xl"
+            >
+                <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="w-20 h-20 bg-cyan-900/30 rounded-2xl flex items-center justify-center mb-6 border border-cyan-500/30 group-hover:border-cyan-400 group-hover:shadow-[0_0_30px_rgba(6,182,212,0.3)] transition-all">
+                    <Activity className="w-10 h-10 text-cyan-400" />
+                </div>
+                <h2 className="text-2xl font-bold mb-2">Rescue Team</h2>
+                <p className="text-gray-400 text-sm">Field operations, live tracking, and emergency response.</p>
+                <div className="mt-6 px-4 py-2 bg-cyan-500/20 rounded-full text-xs font-mono text-cyan-300 border border-cyan-500/30">
+                    SECURE_LEVEL: 2
+                </div>
+            </motion.div>
 
-            <Card3D className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-3xl shadow-2xl group hover:border-orange-500/50">
-               <div className="w-12 h-12 bg-orange-500/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                   <Shield className="w-6 h-6 text-orange-400" />
-               </div>
-               <h3 className="text-xl font-bold mb-2">Secure Ops</h3>
-               <p className="text-sm text-gray-400">Encrypted comms and role-based access control.</p>
-            </Card3D>
+          </motion.div>
+        ) : (
+          // --- LOGIN FORM VIEW ---
+          <motion.div 
+            key="login"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="relative z-10 bg-white/5 backdrop-blur-2xl border border-white/10 p-8 md:p-12 rounded-3xl w-full max-w-md shadow-2xl"
+          >
+             <button 
+                onClick={() => setSelectedRole(null)}
+                className="absolute top-6 left-6 text-gray-400 hover:text-white transition-colors"
+                title="Back to selection"
+             >
+                 <ArrowLeft className="w-6 h-6" />
+             </button>
 
-        </div>
+             <div className="text-center mb-8 mt-4">
+                 <h2 className="text-2xl font-bold mb-1">
+                    {selectedRole === "ADMIN" ? "Command Access" : "Field Login"}
+                 </h2>
+                 <p className="text-gray-400 text-sm">Enter your secure credentials</p>
+             </div>
 
-        {/* CTA Buttons */}
-        <div className="flex gap-6 z-20">
-             <Link href="/login">
-               <motion.button 
-                 whileHover={{ scale: 1.05, boxShadow: "0 0 40px rgba(6,182,212,0.5)" }}
-                 whileTap={{ scale: 0.95 }}
-                 className="px-8 py-4 bg-cyan-500 text-black font-bold rounded-xl flex items-center gap-2"
-               >
-                 Initialize System <ArrowRight className="w-5 h-5" />
-               </motion.button>
-             </Link>
-             
-             <Link href="/dashboard">
-               <motion.button 
-                 whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.1)" }}
-                 whileTap={{ scale: 0.95 }}
-                 className="px-8 py-4 bg-transparent border border-white/20 text-white font-semibold rounded-xl"
-               >
-                 Demo Access
-               </motion.button>
-             </Link>
-        </div>
+             <form onSubmit={handleLogin} className="space-y-5">
+                <div>
+                   <label className="text-xs font-mono text-gray-500 mb-1 block uppercase">Operator ID (Phone)</label>
+                   <div className="relative">
+                       <input 
+                          type="tel" 
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          placeholder="+91 99999 99999"
+                          className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-500 transition-colors"
+                       />
+                   </div>
+                </div>
 
-      </main>
+                <div>
+                   <label className="text-xs font-mono text-gray-500 mb-1 block uppercase">Access Key</label>
+                   <div className="relative">
+                       <input 
+                          type="password" 
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-500 transition-colors"
+                       />
+                       <Lock className="absolute right-4 top-3.5 w-4 h-4 text-gray-600" />
+                   </div>
+                </div>
 
-      {/* Decorative Bottom Fade */}
-      <div className="fixed bottom-0 left-0 w-full h-32 bg-gradient-to-t from-cyan-900/20 to-transparent pointer-events-none" />
+                {error && (
+                    <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center">
+                        {error}
+                    </div>
+                )}
+
+                <motion.button 
+                   whileHover={{ scale: 1.02 }}
+                   whileTap={{ scale: 0.98 }}
+                   disabled={isLoading}
+                   className={`w-full py-4 rounded-xl font-bold text-black shadow-lg flex items-center justify-center gap-2 transition-all ${
+                       selectedRole === "ADMIN" 
+                       ? "bg-purple-500 hover:bg-purple-400 shadow-purple-900/30" 
+                       : "bg-cyan-500 hover:bg-cyan-400 shadow-cyan-900/30"
+                   }`}
+                >
+                   {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "AUTHENTICATE"}
+                </motion.button>
+             </form>
+
+             <div className="mt-8 text-center">
+                 <p className="text-xs text-gray-600 font-mono">
+                     UNAUTHORIZED ACCESS IS PROHIBITED. <br/> SYSTEM LOGS ALL ATTEMPTS.
+                 </p>
+             </div>
+
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      
     </div>
   );
 }

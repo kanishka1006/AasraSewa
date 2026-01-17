@@ -11,7 +11,7 @@ async function bootstrap() {
     // Enable CORS for PWA
     app.enableCors();
 
-    await app.listen(3001); // Run on 3001 to avoid Next.js conflict
+    await app.listen(3001, '0.0.0.0'); // Run on 3001 to avoid Next.js conflict
     console.log(`Backend Application is running on: ${await app.getUrl()}`);
 }
 bootstrap();

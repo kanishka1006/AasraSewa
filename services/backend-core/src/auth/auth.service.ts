@@ -3,8 +3,8 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { User } from '../../database/entities/user.entity';
-import { Role, UserRole } from '../../database/entities/role.entity';
+import { User } from '../database/entities/user.entity';
+import { Role, UserRole } from '../database/entities/role.entity';
 import { RegisterDto, LoginDto } from './dto/auth.dto';
 
 @Injectable()
