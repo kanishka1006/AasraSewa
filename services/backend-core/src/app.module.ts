@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
+import { BandModule } from './bands/bands.module';
 import { User } from './database/entities/user.entity';
 import { Role } from './database/entities/role.entity';
 import { SmartBand } from './database/entities/smart-band.entity';
@@ -22,6 +23,7 @@ import { Rental } from './database/entities/rental.entity';
             logging: true,
         }),
         AuthModule,
+        BandModule,
     ],
 })
 export class AppModule { }
