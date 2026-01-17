@@ -13,12 +13,21 @@ export class TelemetryController {
         const parts = topic.split('/');
         const bandId = parts[1];
 
-        // Validate JSON? (Assuming valid for now for speed)
+        // Validate JSON
         if (typeof data === 'string') {
             try { data = JSON.parse(data); } catch (e) { }
         }
 
-        this.telemetryService.processTelemetry(bandId, data);
+        // Support Batch/Offline Data (Array)
+        if (Array.isArray(data)) {
+            console.log(`Received BATCH of ${data.length} records from ${bandId}`);
+            for (const record of data) {
+                await this.telemetryService.processTelemetry(bandId, record);
+            }
+        } else {
+            // Single Record
+            await this.telemetryService.processTelemetry(bandId, data);
+        }
     }
 
     @MessagePattern('bands/+/sos')
