@@ -1,0 +1,41 @@
+services:
+  # 1. PostgreSQL with PostGIS (Primary Database)
+  postgres:
+    image: postgis/postgis:15-3.3
+    container_name: aasra_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: aasra_admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: aasra_main
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # 2. EMQX (MQTT Broker for IoT)
+  emqx:
+    image: emqx/emqx:5.3.0
+    container_name: aasra_mqtt
+    restart: always
+    ports:
+      - "1883:1883" # MQTT TCP
+      - "8083:8083" # MQTT Websocket
+      - "18083:18083" # Dashboard
+    environment:
+      EMQX_ALLOW_ANONYMOUS: "true" # Dev only
+
+  # 3. Redis (Cache & PubSub)
+  redis:
+    image: redis:alpine
+    container_name: aasra_redis
+    ports:
+      - "6379:6379"
+  # 4. TimescaleDB (IoTTimeSeries - Optional if strictly using Postgres/PostGIS for now)
+  # Uncomment if specific IoT specific features needed separate from Main DB
+  # timescaledb:
+  #   image: timescale/timescaledb:latest-pg15
+  #   ...
+
+volumes:
+  postgres_data:
