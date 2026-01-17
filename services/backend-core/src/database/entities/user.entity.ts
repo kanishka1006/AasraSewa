@@ -11,6 +11,7 @@ import {
 import { IsNotEmpty, IsPhoneNumber, IsBoolean } from 'class-validator';
 import { Role } from './role.entity';
 import { Rental } from './rental.entity';
+import { SosAlert } from './alert.entity';
 
 @Entity('users')
 export class User {
