@@ -7,8 +7,7 @@ I have selected this stack to maximize development velocity and reliability whil
 
 | Layer | Technology | Justification (The "Why") |
 | :--- | :--- | :--- |
-| **Mobile App** | **Flutter** (Dart) | **Single codebase** for iOS/Android. Superior performance to React Native for complex map rendering. Excellent plugin ecosystem for **offline** databases (SQLite) and hardware access (Bluetooth for limited connectivity). |
-| **Web Dashboard** | **Next.js** (React) | Server-Side Rendering (SSR) ensures fast loads on low-bandwidth networks (Control Rooms). React ecosystem allows sharing logic/types with a Node.js backend. |
+| **Frontend (PWA)** | **Next.js** (React) | **Unified PWA** for all users. Server-Side Rendering (SSR) for speed, **Service Workers** for offline caching, and responsive design for mobile access. avoids app store friction. |
 | **Backend API** | **Node.js** (NestJS) | **TypeScript** across the full stack reduces bugs. NestJS provides an enforced architecture (Modules/Controllers) scaling better than Express as the team grows. Event-driven by nature, perfect for real-time SOS. |
 | **AI/ML Service** | **Python** (FastAPI) | Python is non-negotiable for AI/ML libraries (scikit-learn, PyTorch). FastAPI is blazing fast and handles async requests efficiently. |
 | **Primary DB** | **PostgreSQL** (+ PostGIS) | The "Swiss Army Knife". Handling User data (Relational) and Location data (Geospatial) in one robust, free, open-source engine. **Zero licensing cost.** |

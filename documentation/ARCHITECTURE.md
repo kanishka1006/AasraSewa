@@ -8,8 +8,7 @@ This document outlines the complete architectural design for the AasraSewa platf
 ```mermaid
 graph TD
     subgraph "Clients (Front-End)"
-        Web[Web Dashboard <br/> (Admins/Control Room)]
-        Mob[Mobile App <br/> (Citizens/Volunteers/Field)]
+        Web[Unified PWA <br/> (Admins/Citizens/Volunteers)]
         IoT[IoT Sensors <br/> (Water/Seismic/Capacity)]
     end
 
@@ -17,7 +16,7 @@ graph TD
         CDN[CDN (Static Assets)]
         WAF[WAF / Load Balancer]
         MQTT[MQTT Broker]
-        SMS[SMS/LoRa Gateway <br/> (Offline Fallback)]
+        SMS[SMS Gateway <br/> (Offline Fallback)]
     end
 
     subgraph "Backend Services (Microservices Cluster)"
@@ -51,9 +50,7 @@ graph TD
 
     %% Connections
     Web --> CDN
-    Mob --> CDN
     Web --> WAF
-    Mob --> WAF
     IoT --> MQTT
 
     WAF --> AG
@@ -88,10 +85,10 @@ graph TD
 ### 2. Component Breakdown
 
 #### A. Frontend
-1.  **Public/Volunteer Mobile App (React Native / Flutter)**
-    *   **Features**: SOS signalling, nearby shelter locator, donation coordination, volunteer task lists.
-    *   **Offline First**: Uses local database (WatermelonDB or SQLite) to cache maps and critical data. Synced when connectivity returns.
-    *   **LoRa Mesh**: Optional integration for mesh messaging when cellular networks are down.
+1.  **Unified PWA (Next.js / React)**
+    *   **Features**: Single interface for Citizens (SOS, Locator) and Helpers (Coordination). Responsive design adapts to mobile/desktop.
+    *   **Offline First**: Uses **Service Workers** and **IndexedDB** to cache maps and submits. Syncs automatically when online.
+    *   **Installable**: Users can "Add to Home Screen" for an app-like experience without app stores.
 2.  **Command Center Dashboard (Next.js / React)**
     *   **Features**: Real-time situational awareness map, resource heatmaps, sensor dashboards, agency coordination.
     *   **Analytics**: Visualization of risk models and ongoing relief operations.
@@ -121,7 +118,7 @@ graph TD
 4.  **Elasticsearch**: For fuzzy search of missing persons, resources, and full-text aggregation.
 
 #### F. Offline & Fallback Mechanisms
-1.  **Mobile Offline Mode**: App caches map tiles and essential contacts. SOS requests are queued locally and retried.
+1.  **PWA Offline Mode**: Service Workers cache critical assets. SOS requests are stored in IndexedDB and sync automatically.
 2.  **SMS Bridge**: If internet fails, specific formatted SMS messages can trigger backend webhooks to register SOS or status updates.
 3.  **Sneakernet/p2p**: In extreme scenarios, devices can sync via Bluetooth LE API (e.g., Bridgefy logic) to pass encrypted messages to a connected node.
 
