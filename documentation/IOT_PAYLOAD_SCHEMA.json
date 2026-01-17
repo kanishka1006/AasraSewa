@@ -1,0 +1,53 @@
+{
+  "description": "Smart Band Telemetry Schema - Optimized for Low Bandwidth (MQTT)",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Last 4 chars of MAC or Unique Device Short ID",
+      "maxLength": 4
+    },
+    "ts": {
+      "type": "integer",
+      "description": "Unix Timestamp (Seconds)"
+    },
+    "lat": {
+      "type": "number", 
+      "maximum": 90, 
+      "minimum": -90,
+      "description": "Latitude (4 decimal precision)"
+    },
+    "lon": {
+      "type": "number", 
+      "maximum": 180, 
+      "minimum": -180,
+      "description": "Longitude (4 decimal precision)"
+    },
+    "hr": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "description": "Heart Rate in BPM"
+    },
+    "oxy": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "SpO2 Percentage"
+    },
+    "tmp": {
+      "type": "number",
+      "description": "Body Temperature in Celsius"
+    },
+    "bat": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "sos": {
+      "type": "boolean",
+      "description": "Panic Button Status"
+    }
+  },
+  "required": ["id", "ts", "lat", "lon", "bat"]
+}
