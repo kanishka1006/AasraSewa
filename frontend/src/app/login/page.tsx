@@ -102,6 +102,18 @@ export default function LoginPage() {
             )}
           </motion.button>
         </form>
+
+        <div className="mt-8 pt-6 border-t border-white/10 text-center">
+            <p className="text-gray-400 text-sm mb-3">Authorized Personnel Only</p>
+            <a 
+              href="http://localhost:3002" 
+              target="_blank"
+              className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300 font-semibold transition-colors bg-blue-500/10 px-4 py-2 rounded-lg hover:bg-blue-500/20"
+            >
+               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+               Rescue Team Portal
+            </a>
+        </div>
       </motion.div>
     </div>
   );
