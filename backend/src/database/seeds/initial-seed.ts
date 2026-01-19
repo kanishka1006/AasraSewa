@@ -59,6 +59,29 @@ export const seedDatabase = async (dataSource: DataSource) => {
         await userRepo.save(citizenUser);
     }
 
+    // Seed Specific Users requested
+    const newUsers = [
+        { name: 'Praguni Sanotra', age: 21, phone: '+917889412726' },
+        { name: 'Lomash Gupta', age: 22, phone: '+919797691071' },
+        { name: 'Aakarshan Verma', age: 21, phone: '+917780883009' },
+        { name: 'Pranav Sanotra', age: 24, phone: '+918825059485' },
+    ];
+
+    for (const u of newUsers) {
+        let user = await userRepo.findOneBy({ phoneNumber: u.phone });
+        if (!user) {
+            user = userRepo.create({
+                fullName: u.name,
+                phoneNumber: u.phone,
+                age: u.age,
+                passwordHash: hash,
+                role: savedRoles[UserRole.CITIZEN],
+                isSafe: true,
+            });
+            await userRepo.save(user);
+        }
+    }
+
     // 3. Seed Smart Bands
     let band1 = await bandRepo.findOneBy({ macAddress: '00:1B:44:11:3A:B7' });
     if (!band1) {

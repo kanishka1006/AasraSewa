@@ -27,6 +27,9 @@ export class User {
     @IsPhoneNumber('IN') // Assuming India (+91)
     phoneNumber: string;
 
+    @Column({ nullable: true })
+    age: number;
+
     // Storing hashed password
     @Column({ select: false })
     passwordHash: string;

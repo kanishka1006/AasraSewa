@@ -40,4 +40,9 @@ export class AuthController {
     adminOnly(@Request() req) {
         return { message: "Welcome Admin", user: req.user };
     }
+
+    @Get('users')
+    async getAllUsers() {
+        return this.authService.getAllUsers();
+    }
 }

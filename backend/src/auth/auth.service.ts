@@ -86,4 +86,10 @@ export class AuthService {
             }
         };
     }
+
+    async getAllUsers() {
+        return this.userRepository.find({
+            order: { createdAt: 'DESC' }
+        });
+    }
 }
