@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Ambulance, Radio, MapPin, CheckCircle, Bell, Wind, X, ArrowRight } from "lucide-react";
+import { Ambulance, Radio, MapPin, CheckCircle, Bell, Wind, X, ArrowRight, Bot } from "lucide-react";
 
 import dynamic from "next/dynamic";
 
@@ -10,6 +10,7 @@ const RescueMap = dynamic(() => import("../components/RescueMap"), {
   ssr: false,
   loading: () => <div className="h-[300px] bg-slate-800 animate-pulse rounded-xl flex items-center justify-center text-slate-500">Loading Sat-Nav...</div>,
 });
+import DroneFeed from "../components/DroneFeed";
 
 export default function RescueHome() {
   const [missions, setMissions] = useState([
@@ -36,7 +37,8 @@ export default function RescueHome() {
                      priority: a.priority,
                      time: a.time,
                      details: a.details,
-                     heatmapData: a.heatmapData // Include Crowd Data
+                     heatmapData: a.heatmapData, // Include Crowd Data
+                     aiAnalysis: a.aiAnalysis // Include AI Strategy Data
                  }));
                  
                  setMissions(prev => {
@@ -232,11 +234,46 @@ export default function RescueHome() {
                         
                         {/* Heatmap Visualization for Stampede */}
                         {selectedMission.heatmapData && (
-                            <div className="rounded-xl overflow-hidden border-2 border-slate-700 relative">
-                                <div className="absolute top-2 left-2 z-[9999] bg-slate-900/90 text-slate-300 text-xs px-2 py-1 rounded font-mono">
-                                    LIVE DRONE FEED
+                            <div className="space-y-4">
+                                <div className="rounded-xl overflow-hidden border-2 border-slate-700 relative h-[300px]">
+                                    <div className="absolute top-2 left-2 z-[9999] bg-slate-900/90 text-slate-300 text-xs px-2 py-1 rounded font-mono">
+                                        LIVE SAT FEED
+                                    </div>
+                                    <RescueMap users={selectedMission.heatmapData} />
                                 </div>
-                                <RescueMap users={selectedMission.heatmapData} />
+                                
+                                {/* DRONE FEED */}
+                                <div className="rounded-xl overflow-hidden border-2 border-slate-700 relative">
+                                    <div className="absolute top-2 left-2 z-[9999] bg-slate-900/90 text-slate-300 text-xs px-2 py-1 rounded font-mono">
+                                         DRONE UPLINK [ALPHA-1]
+                                    </div>
+                                     <DroneFeed />
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* AI Analysis Display */}
+                        {selectedMission.aiAnalysis && (
+                             <div className="bg-indigo-900/30 p-4 rounded-xl border border-indigo-500/30">
+                                 <div className="flex justify-between items-start mb-2">
+                                    <h4 className="text-indigo-400 text-sm uppercase tracking-wider font-bold flex items-center gap-2">
+                                        <Bot className="w-4 h-4" /> Tactical AI Strategy
+                                    </h4>
+                                    <button 
+                                      onClick={() => {
+                                          const utterance = new SpeechSynthesisUtterance(selectedMission.aiAnalysis);
+                                          utterance.rate = 1.1;
+                                          utterance.pitch = 1.0;
+                                          window.speechSynthesis.speak(utterance);
+                                      }}
+                                      className="text-xs bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-300 px-2 py-1 rounded flex items-center gap-1 transition-colors"
+                                    >
+                                        <Radio className="w-3 h-3" /> Play Briefing
+                                    </button>
+                                 </div>
+                                 <p className="text-sm text-indigo-100 leading-relaxed font-mono whitespace-pre-wrap">
+                                     {selectedMission.aiAnalysis}
+                                 </p>
                             </div>
                         )}
 
@@ -256,9 +293,18 @@ export default function RescueHome() {
                             Cancel
                         </button>
                         <button 
-                            onClick={() => {
+                            onClick={async () => {
+                                // 1. Remove from local list & mark as accepted
                                 acceptedIdsRef.current.add(selectedMission.id);
                                 setMissions(prev => prev.filter(m => m.id !== selectedMission.id));
+                                
+                                // 2. Delete from Backend so it doesn't reappear
+                                try {
+                                    await fetch(`http://localhost:3001/alerts/${selectedMission.id}`, { method: 'DELETE' });
+                                } catch (e) {
+                                    console.error("Failed to delete alert form backend", e);
+                                }
+
                                 setSelectedMission(null);
                                 alert(`Mission ${selectedMission.id} Accepted. Deployment Team notified.`);
                             }}

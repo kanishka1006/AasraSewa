@@ -13,6 +13,7 @@ import { SosModule } from './sos/sos.module';
 import { SosAlert } from './database/entities/alert.entity';
 
 import { AlertsController } from './alerts/alerts.controller';
+import { GeminiModule } from './gemini/gemini.module';
 
 @Module({
     imports: [
@@ -32,6 +33,7 @@ import { AlertsController } from './alerts/alerts.controller';
         BandModule,
         LocationModule,
         SosModule,
+        GeminiModule,
     ],
     controllers: [AlertsController],
 })

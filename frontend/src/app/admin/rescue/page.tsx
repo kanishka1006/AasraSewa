@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CheckCircle, Clock, AlertTriangle, ArrowRight, X, MapPin, Thermometer, Users, HeartPulse, ShieldAlert } from "lucide-react";
+import { CheckCircle, Clock, AlertTriangle, ArrowRight, X, MapPin, Thermometer, Users, HeartPulse, ShieldAlert, Bot } from "lucide-react";
 import dynamic from "next/dynamic";
 
 // Reuse the LiveMap for the Heatmap visualization for now
@@ -15,14 +15,18 @@ export default function RescuePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showStampedeMap, setShowStampedeMap] = useState(false);
   const [heatmapData, setHeatmapData] = useState<any[]>([]);
+  
+  const [missionLocation, setMissionLocation] = useState<{lat: number, lon: number, address: string} | null>(null);
+  
+  // AI State
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const missions = [
     { id: "RES-101", type: "Medical", location: "Sector 4, Rohini", status: "In Progress", priority: "High", time: "2 mins ago", team: "Team Alpha" },
     { id: "RES-098", type: "Fire", location: "Industrial Area, Okhla", status: "Dispatched", priority: "Critical", time: "15 mins ago", team: "Team Bravo" },
     { id: "RES-095", type: "Flood", location: "Yamuna Bank", status: "Resolved", priority: "Medium", time: "2 hours ago", team: "Team Charlie" },
   ];
-
-  const [missionLocation, setMissionLocation] = useState<{lat: number, lon: number, address: string} | null>(null);
 
   const handleCreateMission = (type: string) => {
       if (type === 'Stampede') {
@@ -36,16 +40,50 @@ export default function RescuePage() {
 
                   // Fetch Address
                   let address = "Unknown Location";
+                  let weatherInfo = "Unknown Weather";
+                  
                   try {
                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
                        const data = await res.json();
                        address = data.display_name ? data.display_name.split(',').slice(0, 3).join(',') : `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+                       
+                       // Fetch Weather
+                       const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
+                       const weatherData = await weatherRes.json();
+                       const t = weatherData.current_weather?.temperature;
+                       const w = weatherData.current_weather?.windspeed;
+                       weatherInfo = `${t}°C, Wind ${w}km/h`;
                   } catch (e) {
                       address = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+                      console.error("Fetch Error", e);
                   }
 
-                  setMissionLocation({ lat: latitude, lon: longitude, address: address });
+                  const locationData = { lat: latitude, lon: longitude, address: address };
+                  setMissionLocation(locationData);
                   setShowStampedeMap(true);
+
+                  // TRIGGER AI ANALYSIS
+                  setIsAnalyzing(true);
+                  try {
+                      const aiRes = await fetch('http://localhost:3001/gemini/analyze', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                              type: 'Stampede / Crowd Control',
+                              location: address,
+                              weather: weatherInfo,
+                              details: 'High density crowd detected. Potential for crush injuries. Urgent automated dispatch.'
+                          }) 
+                      });
+                      const aiData = await aiRes.json();
+                      setAiAnalysis(aiData.analysis);
+                  } catch (e) {
+                      console.error("AI Error", e);
+                      setAiAnalysis("AI Connectivity Failed. Proceed with Standard Protocols.");
+                  } finally {
+                      setIsAnalyzing(false);
+                  }
+
               }, (err) => {
                   console.error("Geo Error", err);
                   alert("Could not detect location. Please allow permissions.");
@@ -91,7 +129,8 @@ export default function RescuePage() {
           location: missionLocation?.address || 'Live Location (Crowd Detected)',
           time: 'Just Now',
           details: `High crowd density detected at ${missionLocation?.address || 'Unknown'}. Potential stampede risk. Immediate crowd control required.`,
-          heatmapData: heatmapData 
+          heatmapData: heatmapData,
+          aiAnalysis: aiAnalysis // Send AI plan to rescue teams
       };
 
       try {
@@ -108,6 +147,7 @@ export default function RescuePage() {
               alert(`🚨 Stampede Alert Dispatched for ${missionLocation?.address}!`);
               setIsModalOpen(false);
               setShowStampedeMap(false);
+              setAiAnalysis(null); // Reset
           } else {
               const errText = await res.text();
               console.error("Server Error:", errText);
@@ -279,26 +319,70 @@ export default function RescuePage() {
                         </div>
                       </div>
                   ) : (
-                      <div className="flex flex-col h-auto min-h-[500px]">
-                          <div className="px-6 py-3 bg-amber-50 border-b border-amber-100 flex items-center justify-between">
+                      <div className="flex flex-col h-[80vh]">
+                          {/* Fixed Header */}
+                          <div className="px-6 py-3 bg-amber-50 border-b border-amber-100 flex items-center justify-between shrink-0">
                               <div className="flex items-center gap-2 text-amber-800">
                                   <ShieldAlert className="w-5 h-5 animate-pulse" /> 
                                   <span className="font-bold">Crowd Density Simulation Detected</span>
                               </div>
                               <button onClick={() => setShowStampedeMap(false)} className="text-sm font-medium text-slate-500 hover:text-slate-800 underline">Back</button>
                           </div>
-                          <div className="flex-1 relative bg-slate-100">
-                              {/* Using LiveMap to simulate heatmap - passing high density of users */}
-                              {/* @ts-ignore */}
-                              <LiveMap users={heatmapData} />
+                          
+                          {/* Scrollable Content Body */}
+                          <div className="flex-1 overflow-y-auto">
+                              {/* AI Analysis Panel */}
+                              <div className="px-6 py-3 bg-indigo-50 border-b border-indigo-100">
+                                 <div className="flex items-start gap-3">
+                                    <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                                        <Bot className="w-5 h-5" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h4 className="font-bold text-indigo-800 text-sm mb-1 uppercase">AI Tactical Advisor</h4>
+                                        {isAnalyzing ? (
+                                            <div className="flex items-center gap-2 text-indigo-600 text-sm animate-pulse">
+                                                <span>Analyzing scenario...</span>
+                                                <span className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"></span>
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-indigo-700 whitespace-pre-wrap leading-relaxed font-medium">
+                                                {aiAnalysis || "Pending Analysis..."}
+                                            </p>
+                                        )}
+                                    </div>
+                                 </div>
+                              </div>
+
+                              <div className="relative bg-slate-100 min-h-[400px] h-full">
+                                  {/* Using LiveMap to simulate heatmap - passing high density of users */}
+                                  {/* @ts-ignore */}
+                                  <LiveMap users={heatmapData} />
+                              </div>
                           </div>
-                          <div className="p-4 bg-white border-t flex justify-end gap-3">
+
+                          {/* Fixed Footer */}
+                          {/* Fixed Footer */}
+                          <div className="p-4 bg-white border-t flex justify-end gap-3 shrink-0">
                               <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg">Cancel</button>
                               <button 
                                 onClick={dispatchStampedeAlert}
-                                className="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 flex items-center gap-2"
+                                disabled={isAnalyzing}
+                                className={`px-4 py-2 font-bold rounded-lg flex items-center gap-2 transition-all ${
+                                    isAnalyzing 
+                                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                                    : 'bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-500/30'
+                                }`}
                               >
-                                  <AlertTriangle className="w-4 h-4" /> Dispatch Crowd Control
+                                  {isAnalyzing ? (
+                                      <>
+                                        <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin"></div>
+                                        Wait for AI...
+                                      </>
+                                  ) : (
+                                      <>
+                                        <AlertTriangle className="w-4 h-4" /> Dispatch Crowd Control
+                                      </>
+                                  )}
                               </button>
                           </div>
                       </div>
