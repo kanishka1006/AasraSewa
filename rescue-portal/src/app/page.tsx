@@ -4,6 +4,13 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Ambulance, Radio, MapPin, CheckCircle, Bell, Wind, X, ArrowRight } from "lucide-react";
 
+import dynamic from "next/dynamic";
+
+const RescueMap = dynamic(() => import("../components/RescueMap"), {
+  ssr: false,
+  loading: () => <div className="h-[300px] bg-slate-800 animate-pulse rounded-xl flex items-center justify-center text-slate-500">Loading Sat-Nav...</div>,
+});
+
 export default function RescueHome() {
   const [missions, setMissions] = useState([
     { id: "M-101", type: "Medical Evac", location: "Sector 4, Rohini", priority: "CRITICAL", time: "2m ago", details: "Patient reported unresponsive. Ambulance dispatch required." },
@@ -28,7 +35,8 @@ export default function RescueHome() {
                      location: a.location,
                      priority: a.priority,
                      time: a.time,
-                     details: a.details
+                     details: a.details,
+                     heatmapData: a.heatmapData // Include Crowd Data
                  }));
                  
                  setMissions(prev => {
@@ -58,6 +66,15 @@ export default function RescueHome() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white p-4 lg:p-8 relative">
+    
+    {/* ... Header & Critical Section ... */}
+    
+    {/* (Existing JSX content...) is simplified here for replacement context, 
+        I will target specific blocks to avoid huge replacement if possible, 
+        but given the structure, I might need to replace the Modal section primarily. 
+        Actually, I'll use a larger block replacement to be safe. 
+    */}
+
       <header className="flex justify-between items-center mb-8 border-b border-slate-700 pb-4">
         <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-900/50">
@@ -87,7 +104,7 @@ export default function RescueHome() {
                         <Wind className="w-6 h-6 text-red-600" />
                     </div>
                     <div>
-                        <h3 className="font-bold text-lg">CRITICAL WEATHER ALERT</h3>
+                        <h3 className="font-bold text-lg">CRITICAL WEATHER / CROWD ALERT</h3>
                         <p className="text-red-100 text-sm">New high-priority dispatch received via Admin Command.</p>
                     </div>
                 </div>
@@ -180,12 +197,12 @@ export default function RescueHome() {
                     initial={{ scale: 0.9, y: 20 }}
                     animate={{ scale: 1, y: 0 }}
                     exit={{ scale: 0.9, y: 20 }}
-                    className="bg-slate-900 border border-slate-700 rounded-2xl p-6 md:p-8 max-w-lg w-full shadow-2xl relative"
+                    className="bg-slate-900 border border-slate-700 rounded-2xl p-6 md:p-8 max-w-lg w-full shadow-2xl relative max-h-[90vh] overflow-y-auto"
                     onClick={(e) => e.stopPropagation()}
                 >
                     <button 
                         onClick={() => setSelectedMission(null)}
-                        className="absolute top-4 right-4 bg-slate-800 p-2 rounded-full hover:bg-slate-700 transition-colors"
+                        className="absolute top-4 right-4 bg-slate-800 p-2 rounded-full hover:bg-slate-700 transition-colors z-10"
                     >
                         <X className="w-5 h-5 text-slate-300" />
                     </button>
@@ -212,6 +229,17 @@ export default function RescueHome() {
                              <h4 className="text-slate-400 text-sm mb-1 uppercase tracking-wider font-semibold">Time Reported</h4>
                              <p className="text-lg text-white font-medium">{selectedMission.time}</p>
                         </div>
+                        
+                        {/* Heatmap Visualization for Stampede */}
+                        {selectedMission.heatmapData && (
+                            <div className="rounded-xl overflow-hidden border-2 border-slate-700 relative">
+                                <div className="absolute top-2 left-2 z-[9999] bg-slate-900/90 text-slate-300 text-xs px-2 py-1 rounded font-mono">
+                                    LIVE DRONE FEED
+                                </div>
+                                <RescueMap users={selectedMission.heatmapData} />
+                            </div>
+                        )}
+
                         {selectedMission.details && (
                              <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
                                  <h4 className="text-slate-400 text-sm mb-1 uppercase tracking-wider font-semibold">Alert Details</h4>
