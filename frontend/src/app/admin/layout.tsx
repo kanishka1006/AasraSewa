@@ -11,7 +11,8 @@ import {
   Settings, 
   LogOut,
   Menu,
-  X
+  X,
+  CloudRain
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -23,6 +24,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: "/admin", label: "Overview", icon: Activity },
     { href: "/admin/rescue", label: "Rescue Ops", icon: Radio },
     { href: "/admin/map", label: "Live Map", icon: Map },
+    { href: "/admin/weather", label: "Weather AI", icon: CloudRain },
     { href: "/admin/users", label: "Band Users", icon: Users },
     { href: "/admin/settings", label: "System", icon: Settings },
   ];
