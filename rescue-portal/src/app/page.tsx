@@ -1,13 +1,50 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Ambulance, Radio, MapPin, CheckCircle, Bell } from "lucide-react";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Ambulance, Radio, MapPin, CheckCircle, Bell, Wind } from "lucide-react";
 
 export default function RescueHome() {
-  const missions = [
+  const [missions, setMissions] = useState([
     { id: "M-101", type: "Medical Evac", location: "Sector 4, Rohini", priority: "CRITICAL", time: "2m ago" },
     { id: "M-102", type: "Fire Response", location: "Industrial Area", priority: "HIGH", time: "15m ago" },
-  ];
+  ]);
+
+  // Poll Backend for Alerts
+  useEffect(() => {
+     const checkAlerts = async () => {
+         try {
+             const res = await fetch('http://localhost:3001/alerts');
+             if (!res.ok) return;
+             
+             const alerts = await res.json();
+             if (alerts.length > 0) {
+                 // Merge new alerts
+                 const newMissions = alerts.map((a: any) => ({
+                     id: a.id,
+                     type: a.type,
+                     location: a.location,
+                     priority: a.priority,
+                     time: a.time
+                 }));
+                 
+                 setMissions(prev => {
+                     const ids = new Set(prev.map(m => m.id));
+                     const uniqueNew = newMissions.filter((m: any) => !ids.has(m.id));
+                     // If we found new items, prepend them
+                     if(uniqueNew.length > 0) return [...uniqueNew, ...prev];
+                     return prev;
+                 });
+             }
+         } catch(e) {
+             console.error("Polling error", e);
+         }
+     };
+
+     // Poll every 2 seconds
+     const interval = setInterval(checkAlerts, 2000);
+     return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-900 text-white p-4 lg:p-8">
@@ -25,6 +62,31 @@ export default function RescueHome() {
             <Radio className="w-4 h-4 text-green-400 animate-pulse" /> Channel: 142.5 MHz
         </button>
       </header>
+
+      {/* Critical Alert Banner */}
+      <AnimatePresence>
+        {missions.some(m => m.priority === 'CRITICAL' && m.time === 'Just Now') && (
+            <motion.div 
+               initial={{ height: 0, opacity: 0 }} 
+               animate={{ height: "auto", opacity: 1 }} 
+               exit={{ height: 0, opacity: 0 }}
+               className="mb-8 bg-red-600 rounded-xl p-4 flex items-center justify-between shadow-lg shadow-red-900/50 animate-pulse"
+            >
+                <div className="flex items-center gap-4">
+                    <div className="bg-white p-2 rounded-lg">
+                        <Wind className="w-6 h-6 text-red-600" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-lg">CRITICAL WEATHER ALERT</h3>
+                        <p className="text-red-100 text-sm">New high-priority dispatch received via Admin Command.</p>
+                    </div>
+                </div>
+                <button className="bg-white text-red-600 px-6 py-2 rounded-lg font-bold text-sm hover:bg-red-50">
+                    VIEW DETAILS
+                </button>
+            </motion.div>
+        )}
+      </AnimatePresence>
 
       <main className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Active Missions */}

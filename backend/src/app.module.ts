@@ -12,6 +12,8 @@ import { LocationModule } from './location/location.module';
 import { SosModule } from './sos/sos.module';
 import { SosAlert } from './database/entities/alert.entity';
 
+import { AlertsController } from './alerts/alerts.controller';
+
 @Module({
     imports: [
         ConfigModule.forRoot({ isGlobal: true }),
@@ -31,5 +33,6 @@ import { SosAlert } from './database/entities/alert.entity';
         LocationModule,
         SosModule,
     ],
+    controllers: [AlertsController],
 })
 export class AppModule { }

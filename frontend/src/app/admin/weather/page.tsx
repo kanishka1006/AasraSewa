@@ -130,6 +130,32 @@ export default function WeatherPage() {
                     <>Generate <ArrowRight className="w-5 h-5" /></>
                 )}
             </button>
+            
+            <button
+                onClick={() => {
+                    setLoading(true);
+                    setTimeout(() => {
+                        setData({
+                            current: { temp: 19, condition: "Severe Cyclone", humidity: 98, wind: 85 },
+                            forecast: [
+                                { time: "Now", temp: 19, rainChance: 100, alert: "Cyclone" },
+                                { time: "+1hr", temp: 18, rainChance: 100, alert: "Flooding" },
+                                { time: "+2hr", temp: 18, rainChance: 95, alert: "Critical" },
+                                { time: "+3hr", temp: 18, rainChance: 90 },
+                                { time: "+4hr", temp: 17, rainChance: 80 },
+                            ],
+                            riskLevel: "HIGH",
+                            summary: "SIMULATION: Category 3 Storm system detected over sector. Immediate mobilization required."
+                        });
+                        setLoading(false);
+                    }, 800);
+                }}
+                disabled={loading}
+                className="bg-slate-100 text-slate-700 px-4 py-3 rounded-lg font-bold hover:bg-slate-200 transition-colors flex items-center gap-2 whitespace-nowrap"
+                title="Force High Risk Scenario"
+            >
+                <CloudRain className="w-5 h-5 text-slate-500" /> Test Alert
+            </button>
         </div>
       </div>
 
@@ -183,6 +209,39 @@ export default function WeatherPage() {
                         
                         {/* Decorative Background Icon */}
                         <CloudRain className="absolute -right-10 -bottom-10 w-80 h-80 text-white/5 rotate-12" />
+                        
+                        {/* ALERT BUTTON: Only show if HIGH RISK */}
+                        {data.riskLevel === 'HIGH' && (
+                            <div className="absolute top-6 right-6 z-20">
+                                <button 
+                                    onClick={async () => { 
+                                        const alertObj = {
+                                            id: `W-${Math.floor(Math.random()*1000)}`,
+                                            type: "Severe Weather",
+                                            location: location,
+                                            priority: "CRITICAL",
+                                            time: "Just Now",
+                                            details: data.summary
+                                        };
+                                        
+                                        try {
+                                             await fetch('http://localhost:3001/alerts', {
+                                                 method: 'POST',
+                                                 headers: { 'Content-Type': 'application/json' },
+                                                 body: JSON.stringify(alertObj)
+                                             });
+                                             alert("🚨 Alert Dispatched to Rescue Teams (Backend)!");
+                                        } catch(e) {
+                                            console.error(e);
+                                            alert("Failed to send alert to backend");
+                                        }
+                                    }}
+                                    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-bold shadow-lg animate-pulse flex items-center gap-2"
+                                >
+                                    <Wind className="w-5 h-5" /> DISPATCH TEAM
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Stats Grid */}
