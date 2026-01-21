@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from "framer-motion";
 import { Shield, Activity, Lock, ArrowLeft, Loader2 } from "lucide-react";
+import Image from "next/image";
 
 // --- 3D Background Grid ---
 function RetroGrid() {
@@ -122,11 +123,14 @@ export default function LandingLoginPage() {
         className="relative z-10 flex flex-col items-center mb-12"
       >
         <motion.div 
-            animate={{ rotateZ: 360 }}
-            transition={{ repeat: Infinity, duration: 20, ease: "linear" }}
-            className="w-20 h-20 bg-white/5 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20 mb-6 shadow-[0_0_50px_rgba(6,182,212,0.2)]"
+            className="w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-[0_0_50px_rgba(6,182,212,0.2)] overflow-hidden relative border-2 border-white/20"
         >
-           <Activity className="w-10 h-10 text-cyan-400" />
+           <Image 
+             src="/AasraSewa_Logo.jpeg" 
+             alt="AasraSewa Logo" 
+             fill
+             className="object-cover"
+           />
         </motion.div>
         
         <h1 className="text-5xl md:text-7xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white via-gray-200 to-gray-500 text-center drop-shadow-2xl">

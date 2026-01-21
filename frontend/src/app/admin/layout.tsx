@@ -15,6 +15,7 @@ import {
   CloudRain
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(true);
@@ -38,18 +39,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         className="bg-slate-900 text-white flex-shrink-0 relative hidden lg:flex flex-col duration-300 ease-in-out border-r border-slate-800"
       >
         <div className="p-6 flex items-center justify-between">
-          <AnimatePresence>
-            {isOpen && (
-              <motion.h1 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400"
-              >
-                AasraSewa
-              </motion.h1>
-            )}
-          </AnimatePresence>
+          <div className="flex items-center gap-3">
+             <div className="relative w-8 h-8 rounded-full overflow-hidden shrink-0">
+                <Image src="/AasraSewa_Logo.jpeg" alt="Logo" fill className="object-cover" />
+             </div>
+             <AnimatePresence>
+               {isOpen && (
+                 <motion.h1 
+                   initial={{ opacity: 0, width: 0 }}
+                   animate={{ opacity: 1, width: "auto" }}
+                   exit={{ opacity: 0, width: 0 }}
+                   className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400 whitespace-nowrap overflow-hidden"
+                 >
+                   AasraSewa
+                 </motion.h1>
+               )}
+             </AnimatePresence>
+          </div>
           <button onClick={() => setIsOpen(!isOpen)} className="p-2 hover:bg-slate-800 rounded-lg">
             <Menu className="w-5 h-5 text-gray-400" />
           </button>

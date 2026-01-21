@@ -25,6 +25,33 @@ export default function AdminDashboard() {
      { id: '2', name: 'User B', lat: 28.62, lon: 77.22, sos: true, role: 'CITIZEN', lastUpdate: new Date().toISOString() }
   ];
 
+  const handleDownloadReport = () => {
+    // Generate CSV content
+    const headers = ["Category", "Value", "Status Change"];
+    const rows = stats.map(stat => [stat.label, stat.value, stat.change]);
+    
+    // Add Alerts Section
+    const alertHeaders = ["\n\nActive Alerts", "Type", "Status"];
+    const alerts = mapData.filter(u => u.sos).map(u => [u.name, "SOS Signal", "Active"]);
+    
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(r => r.join(",")),
+      alertHeaders.join(","),
+      ...alerts.map(a => a.join(","))
+    ].join("\n");
+
+    // create blob and download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `system_report_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-end">
@@ -32,7 +59,12 @@ export default function AdminDashboard() {
           <h1 className="text-3xl font-bold text-slate-800">Operational Overview</h1>
           <p className="text-slate-500">Real-time system monitoring</p>
         </div>
-        <button className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-800">Download Report</button>
+        <button 
+          onClick={handleDownloadReport}
+          className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-800 active:scale-95 transition-transform"
+        >
+          Download Report
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
