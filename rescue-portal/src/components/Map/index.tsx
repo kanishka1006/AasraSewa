@@ -15,5 +15,5 @@ const LiveMap = dynamic(() => import("./LiveMap"), {
     </div>
   ),
 });
-
 export default LiveMap;
+export type { MapUser } from "./LiveMap";

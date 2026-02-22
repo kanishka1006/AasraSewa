@@ -31,3 +31,7 @@ logs/
 build/
 .next/
 out/
+
+# Additional Environment Ignore
+.env*
+*.env
