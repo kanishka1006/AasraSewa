@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import LiveMap, { MapUser } from "@/components/Map";
+import LiveMap from "@/components/Map";
+import type { MapUser } from "@/components/Map/LiveMap";
 
 // Types matching backend/database
 interface SosAlert {
