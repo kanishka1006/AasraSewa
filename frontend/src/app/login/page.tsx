@@ -18,13 +18,16 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const res = await fetch("http://localhost:3001/auth/login", {
+      const res = await fetch("http://127.0.0.1:3001/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phoneNumber: phone, password }),
       });
 
-      if (!res.ok) throw new Error("Invalid credentials");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || "Invalid credentials");
+      }
 
       const data = await res.json();
       localStorage.setItem("token", data.accessToken);
@@ -36,8 +39,9 @@ export default function LoginPage() {
       } else {
         router.push("/dashboard");
       }
-    } catch (err) {
-      setError("Login failed. Please check your details.");
+    } catch (err: any) {
+      console.error("Login Error:", err);
+      setError(err.message || "Login failed. Please check your connection.");
     } finally {
       setIsLoading(false);
     }
@@ -106,7 +110,7 @@ export default function LoginPage() {
         <div className="mt-8 pt-6 border-t border-white/10 text-center">
             <p className="text-gray-400 text-sm mb-3">Authorized Personnel Only</p>
             <a 
-              href="http://localhost:3002" 
+              href="https://busy-kids-sniff.loca.lt" 
               target="_blank"
               className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300 font-semibold transition-colors bg-blue-500/10 px-4 py-2 rounded-lg hover:bg-blue-500/20"
             >

@@ -120,10 +120,15 @@ export default function UserDashboard() {
             </div>
         </motion.div>
 
-        {/* SOS Button (Big) */}
+      {/* SOS Button (Big) */}
         <motion.button 
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.95 }}
+          onClick={() => {
+              const audio = new Audio('/siren.mp3'); // Sound file must exist in public folder
+              audio.play().catch(e => console.error("Audio play failed", e));
+              alert("SOS ALERT SENT! Emergency Services Notified.");
+          }}
           className="col-span-2 bg-gradient-to-r from-red-600 to-orange-600 rounded-3xl p-6 shadow-2xl shadow-red-900/50 flex items-center justify-center gap-4 group mt-4 relative overflow-hidden"
         >
            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>

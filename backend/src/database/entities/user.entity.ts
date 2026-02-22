@@ -38,14 +38,11 @@ export class User {
     @IsBoolean()
     isSafe: boolean;
 
-    // PostGIS location type
+    // PostGIS location type (TEMPORARY: Changed to jsonb for non-PostGIS setup)
     @Column({
-        type: 'geometry',
-        spatialFeatureType: 'Point',
-        srid: 4326,
+        type: 'jsonb',
         nullable: true,
     })
-    @Index({ spatial: true })
     lastKnownLocation: Record<string, any>;
 
     @Column({ nullable: true })

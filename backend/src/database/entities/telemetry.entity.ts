@@ -13,9 +13,7 @@ export class Telemetry {
     timestamp: Date;
 
     @Column({
-        type: 'geometry',
-        spatialFeatureType: 'Point',
-        srid: 4326,
+        type: 'jsonb',
         nullable: true
     })
     location: object;

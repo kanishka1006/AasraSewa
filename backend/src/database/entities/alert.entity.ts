@@ -52,9 +52,8 @@ export class SosAlert {
 
     // Snapshot location where SOS was triggered
     @Column({
-        type: 'geometry',
-        spatialFeatureType: 'Point',
-        srid: 4326,
+        type: 'jsonb',
+        nullable: true,
     })
     location: object;
 

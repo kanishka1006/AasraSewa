@@ -78,8 +78,14 @@ export const seedDatabase = async (dataSource: DataSource) => {
                 role: savedRoles[UserRole.CITIZEN],
                 isSafe: true,
             });
-            await userRepo.save(user);
+        } else {
+            // Update existing user to ensure password/details are correct
+            user.fullName = u.name;
+            user.age = u.age;
+            user.passwordHash = hash;
+            // distinct from create, we just update fields we want to enforce
         }
+        await userRepo.save(user);
     }
 
     // 3. Seed Smart Bands
