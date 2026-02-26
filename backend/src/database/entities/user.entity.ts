@@ -1,65 +1,46 @@
-import {
-    Entity,
-    PrimaryGeneratedColumn,
-    Column,
-    CreateDateColumn,
-    UpdateDateColumn,
-    ManyToOne,
-    OneToMany,
-    Index,
-} from 'typeorm';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document, Schema as MongooseSchema } from 'mongoose';
 import { IsNotEmpty, IsPhoneNumber, IsBoolean } from 'class-validator';
 import { Role } from './role.entity';
 import { Rental } from './rental.entity';
 import { SosAlert } from './alert.entity';
 
-@Entity('users')
-export class User {
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+export type UserDocument = User & Document;
 
-    @Column()
+@Schema({ timestamps: true })
+export class User {
+    @Prop({ required: true })
     @IsNotEmpty()
     fullName: string;
 
-    @Column({ unique: true })
-    @Index()
-    @IsPhoneNumber('IN') // Assuming India (+91)
+    @Prop({ unique: true, index: true, required: true })
+    @IsPhoneNumber('IN')
     phoneNumber: string;
 
-    @Column({ nullable: true })
+    @Prop()
     age: number;
 
-    // Storing hashed password
-    @Column({ select: false })
+    @Prop({ select: false })
     passwordHash: string;
 
-    @Column({ default: true })
+    @Prop({ default: true })
     @IsBoolean()
     isSafe: boolean;
 
-    // PostGIS location type (TEMPORARY: Changed to jsonb for non-PostGIS setup)
-    @Column({
-        type: 'jsonb',
-        nullable: true,
-    })
+    @Prop({ type: MongooseSchema.Types.Mixed })
     lastKnownLocation: Record<string, any>;
 
-    @Column({ nullable: true })
-    fcmToken: string; // Firebase Device Token
+    @Prop()
+    fcmToken: string;
 
-    @ManyToOne(() => Role, (role) => role.users, { eager: true })
-    role: Role;
+    @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Role' })
+    role: any;
 
-    @OneToMany(() => Rental, (rental) => rental.user)
-    rentals: Rental[];
+    @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: 'Rental' }] })
+    rentals: any[];
 
-    @OneToMany(() => SosAlert, (alert) => alert.victim)
-    alerts: SosAlert[];
-
-    @CreateDateColumn()
-    createdAt: Date;
-
-    @UpdateDateColumn()
-    updatedAt: Date;
+    @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: 'SosAlert' }] })
+    alerts: any[];
 }
+
+export const UserSchema = SchemaFactory.createForClass(User);

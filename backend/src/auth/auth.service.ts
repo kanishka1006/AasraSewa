@@ -1,95 +1,85 @@
 import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
-import { User } from '../database/entities/user.entity';
-import { Role, UserRole } from '../database/entities/role.entity';
+import { User, UserDocument } from '../database/entities/user.entity';
+import { Role, RoleDocument, UserRole } from '../database/entities/role.entity';
 import { RegisterDto, LoginDto } from './dto/auth.dto';
 
 @Injectable()
 export class AuthService {
     constructor(
-        @InjectRepository(User)
-        private userRepository: Repository<User>,
-        @InjectRepository(Role)
-        private roleRepository: Repository<Role>,
+        @InjectModel(User.name) private userModel: Model<UserDocument>,
+        @InjectModel(Role.name) private roleModel: Model<RoleDocument>,
         private jwtService: JwtService,
     ) { }
 
     async register(registerDto: RegisterDto) {
         const { phoneNumber, password, fullName } = registerDto;
 
-        // 1. Check if user exists
-        const existingUser = await this.userRepository.findOne({ where: { phoneNumber } });
+        const existingUser = await this.userModel.findOne({ phoneNumber }).exec();
         if (existingUser) {
             throw new ConflictException('Phone number already registered');
         }
 
-        // 2. Hash Password
         const salt = await bcrypt.genSalt();
         const passwordHash = await bcrypt.hash(password, salt);
 
-        // 3. Assign Default Role (CITIZEN)
-        const citizenRole = await this.roleRepository.findOne({ where: { name: UserRole.CITIZEN } });
+        const citizenRole = await this.roleModel.findOne({ name: UserRole.CITIZEN }).exec();
         if (!citizenRole) {
             throw new BadRequestException('System Roles not initialized. Run seeder.');
         }
 
-        // 4. Create User
-        const user = this.userRepository.create({
+        const user = new this.userModel({
             fullName,
             phoneNumber,
             passwordHash,
-            role: citizenRole,
+            role: citizenRole._id,
             isSafe: true,
         });
 
-        await this.userRepository.save(user);
+        await user.save();
+        await user.populate('role');
 
-        // 5. Generate Tokens
-        return this.generateTokens(user);
+        return this.generateTokens(user as UserDocument & { role: any });
     }
 
     async login(loginDto: LoginDto) {
         const { phoneNumber, password } = loginDto;
 
-        // 1. Find User (Explicitly select passwordHash)
-        const user = await this.userRepository.createQueryBuilder('user')
-            .addSelect('user.passwordHash')
-            .leftJoinAndSelect('user.role', 'role')
-            .where('user.phoneNumber = :phoneNumber', { phoneNumber })
-            .getOne();
+        const user = await this.userModel.findOne({ phoneNumber })
+            .select('+passwordHash')
+            .populate('role')
+            .exec();
 
         if (!user) {
             throw new UnauthorizedException('Invalid credentials');
         }
 
-        // 2. Validate Password
         const isMatch = await bcrypt.compare(password, user.passwordHash);
         if (!isMatch) {
             throw new UnauthorizedException('Invalid credentials');
         }
 
-        return this.generateTokens(user);
+        return this.generateTokens(user as UserDocument & { role: any });
     }
 
-    private async generateTokens(user: User) {
-        const payload = { sub: user.id, role: user.role.name };
+    private async generateTokens(user: UserDocument & { role: any }) {
+        const roleName = user.role?.name || UserRole.CITIZEN;
+        const payload = { sub: user._id || user.id, role: roleName };
         return {
             accessToken: this.jwtService.sign(payload, { expiresIn: '15m' }),
             refreshToken: this.jwtService.sign(payload, { expiresIn: '7d' }),
             user: {
-                id: user.id,
+                id: user._id || user.id,
                 fullName: user.fullName,
-                role: user.role.name,
+                role: roleName,
             }
         };
     }
 
     async getAllUsers() {
-        return this.userRepository.find({
-            order: { createdAt: 'DESC' }
-        });
+        return this.userModel.find().populate('role').sort({ createdAt: -1 }).exec();
     }
 }

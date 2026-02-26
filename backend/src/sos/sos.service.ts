@@ -1,67 +1,62 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { SosAlert, AlertStatus, AlertPriority } from '../database/entities/alert.entity';
-import { User } from '../database/entities/user.entity';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { SosAlert, SosAlertDocument, AlertStatus, AlertPriority } from '../database/entities/alert.entity';
+import { User, UserDocument } from '../database/entities/user.entity';
 import { CreateSosDto, UpdateSosStatusDto, AssignRescuerDto } from './dto/sos.dto';
 
 @Injectable()
 export class SosService {
     constructor(
-        @InjectRepository(SosAlert)
-        private alertRepo: Repository<SosAlert>,
-        @InjectRepository(User)
-        private userRepo: Repository<User>,
+        @InjectModel(SosAlert.name) private alertModel: Model<SosAlertDocument>,
+        @InjectModel(User.name) private userModel: Model<UserDocument>,
     ) { }
 
     async createAlert(dto: CreateSosDto) {
-        const user = await this.userRepo.findOne({ where: { id: dto.userId } });
+        const user = await this.userModel.findById(dto.userId);
         if (!user) throw new NotFoundException('User not found');
 
-        const alert = this.alertRepo.create({
-            victim: user,
+        const alert = new this.alertModel({
+            victim: user._id,
             status: AlertStatus.OPEN,
             priority: AlertPriority.HIGH,
             notes: dto.notes || 'Emergency triggered',
-            // If coordinates provided, create Point. Else try using user.lastKnownLocation
             location: (dto.lat && dto.lon)
                 ? { type: 'Point', coordinates: [dto.lon, dto.lat] }
                 : user.lastKnownLocation
         });
 
-        return this.alertRepo.save(alert);
+        return alert.save();
     }
 
     async getActiveAlerts() {
-        return this.alertRepo.find({
-            where: [
-                { status: AlertStatus.OPEN },
-                { status: AlertStatus.ASSIGNED },
-                { status: AlertStatus.IN_PROGRESS }
-            ],
-            relations: ['victim', 'rescuer'],
-            order: { priority: 'ASC', createdAt: 'DESC' } // Critical first
-        });
+        return this.alertModel.find({
+            status: { $in: [AlertStatus.OPEN, AlertStatus.ASSIGNED, AlertStatus.IN_PROGRESS] }
+        })
+            .populate('victim')
+            .populate('rescuer')
+            .sort({ priority: 1, createdAt: -1 }) // Critical first
+            .exec();
     }
 
     async assignRescuer(dto: AssignRescuerDto) {
-        const alert = await this.alertRepo.findOne({ where: { id: dto.alertId } });
+        const alert = await this.alertModel.findById(dto.alertId);
         if (!alert) throw new NotFoundException('Alert not found');
 
-        const rescuer = await this.userRepo.findOne({ where: { id: dto.rescuerId } });
+        const rescuer = await this.userModel.findById(dto.rescuerId);
         if (!rescuer) throw new NotFoundException('Rescuer not found');
 
-        alert.rescuer = rescuer;
+        alert.rescuer = rescuer._id;
         alert.status = AlertStatus.ASSIGNED;
 
-        return this.alertRepo.save(alert);
+        return alert.save();
     }
 
     async updateStatus(dto: UpdateSosStatusDto) {
-        const alert = await this.alertRepo.findOne({ where: { id: dto.alertId } });
+        const alert = await this.alertModel.findById(dto.alertId);
         if (!alert) throw new NotFoundException('Alert not found');
 
-        alert.status = dto.status;
+        alert.status = dto.status as AlertStatus;
         if (dto.notes) {
             alert.notes = (alert.notes || '') + '\n' + dto.notes;
         }
@@ -70,6 +65,6 @@ export class SosService {
             alert.resolvedAt = new Date();
         }
 
-        return this.alertRepo.save(alert);
+        return alert.save();
     }
 }

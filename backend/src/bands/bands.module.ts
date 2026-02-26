@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { MongooseModule } from '@nestjs/mongoose';
 import { BandController } from './bands.controller';
 import { BandService } from './bands.service';
-import { SmartBand } from '../database/entities/smart-band.entity';
-import { Rental } from '../database/entities/rental.entity';
-import { User } from '../database/entities/user.entity';
+import { SmartBand, SmartBandSchema } from '../database/entities/smart-band.entity';
+import { Rental, RentalSchema } from '../database/entities/rental.entity';
+import { User, UserSchema } from '../database/entities/user.entity';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([SmartBand, Rental, User])],
+    imports: [MongooseModule.forFeature([{ name: SmartBand.name, schema: SmartBandSchema }, { name: Rental.name, schema: RentalSchema }, { name: User.name, schema: UserSchema }])],
     controllers: [BandController],
     providers: [BandService],
 })

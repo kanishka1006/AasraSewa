@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document, Schema as MongooseSchema } from 'mongoose';
 import { IsMACAddress, IsEnum, Min, Max } from 'class-validator';
 import { Rental } from './rental.entity';
 
@@ -9,43 +10,32 @@ export enum BandStatus {
     LOST = 'LOST',
 }
 
-@Entity('smart_bands')
-export class SmartBand {
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+export type SmartBandDocument = SmartBand & Document;
 
-    @Column({ unique: true, length: 17 })
+@Schema({ timestamps: true })
+export class SmartBand {
+    @Prop({ unique: true, required: true, maxlength: 17 })
     @IsMACAddress()
     macAddress: string;
 
-    @Column({ unique: true, nullable: true })
+    @Prop({ unique: true, sparse: true })
     qrCodeHash: string;
 
-    @Column()
+    @Prop({ required: true })
     firmwareVersion: string;
 
-    @Column({ type: 'int', default: 100 })
-    @Min(0)
-    @Max(100)
+    @Prop({ default: 100, min: 0, max: 100 })
     batteryLevel: number;
 
-    @Column({
-        type: 'enum',
-        enum: BandStatus,
-        default: BandStatus.AVAILABLE,
-    })
+    @Prop({ type: String, enum: BandStatus, default: BandStatus.AVAILABLE })
     @IsEnum(BandStatus)
     status: BandStatus;
 
-    @Column({ nullable: true })
+    @Prop({ type: Date })
     lastPingAt: Date;
 
-    @OneToMany(() => Rental, (rental) => rental.band)
-    rentals: Rental[];
-
-    @CreateDateColumn()
-    createdAt: Date;
-
-    @UpdateDateColumn()
-    updatedAt: Date;
+    @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: 'Rental' }] })
+    rentals: any[];
 }
+
+export const SmartBandSchema = SchemaFactory.createForClass(SmartBand);

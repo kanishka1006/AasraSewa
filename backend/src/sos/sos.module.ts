@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { MongooseModule } from '@nestjs/mongoose';
 import { SosController } from './sos.controller';
 import { SosService } from './sos.service';
-import { SosAlert } from '../database/entities/alert.entity';
-import { User } from '../database/entities/user.entity';
+import { SosAlert, SosAlertSchema } from '../database/entities/alert.entity';
+import { User, UserSchema } from '../database/entities/user.entity';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([SosAlert, User])],
+    imports: [MongooseModule.forFeature([{ name: SosAlert.name, schema: SosAlertSchema }, { name: User.name, schema: UserSchema }])],
     controllers: [SosController],
     providers: [SosService],
 })

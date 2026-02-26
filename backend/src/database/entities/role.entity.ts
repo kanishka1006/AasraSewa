@@ -1,5 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
-import { User } from './user.entity';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document } from 'mongoose';
 
 export enum UserRole {
   ADMIN = 'ADMIN',
@@ -9,24 +9,18 @@ export enum UserRole {
   VOLUNTEER = 'VOLUNTEER',
 }
 
-@Entity('roles')
-export class Role {
-  @PrimaryGeneratedColumn()
-  id: number;
+export type RoleDocument = Role & Document;
 
-  @Column({
-    type: 'enum',
-    enum: UserRole,
-    unique: true,
-  })
+@Schema()
+export class Role {
+  @Prop({ type: String, enum: UserRole, unique: true, required: true })
   name: UserRole;
 
-  @Column({ type: 'text', nullable: true })
+  @Prop({ type: String })
   description: string;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Prop({ type: Object, default: {} })
   permissions: Record<string, boolean>;
-
-  @OneToMany(() => User, (user) => user.role)
-  users: User[];
 }
+
+export const RoleSchema = SchemaFactory.createForClass(Role);

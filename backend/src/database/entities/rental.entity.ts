@@ -1,14 +1,6 @@
-import {
-    Entity,
-    PrimaryGeneratedColumn,
-    Column,
-    CreateDateColumn,
-    ManyToOne,
-    JoinColumn,
-} from 'typeorm';
-import { IsNumber, IsEnum, Min } from 'class-validator';
-import { User } from './user.entity';
-import { SmartBand, BandStatus } from './smart-band.entity';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document, Schema as MongooseSchema } from 'mongoose';
+import { IsNumber, Min } from 'class-validator';
 
 export enum RentalStatus {
     ACTIVE = 'ACTIVE',
@@ -22,45 +14,35 @@ export enum DepositStatus {
     FORFEITED = 'FORFEITED',
 }
 
-@Entity('rentals')
+export type RentalDocument = Rental & Document;
+
+@Schema({ timestamps: { createdAt: 'startTime', updatedAt: false } })
 export class Rental {
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+    @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })
+    user: any;
 
-    @ManyToOne(() => User, (user) => user.rentals, { nullable: false })
-    @JoinColumn({ name: 'user_id' })
-    user: User;
+    @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'SmartBand', required: true })
+    band: any;
 
-    @ManyToOne(() => SmartBand, (band) => band.rentals, { nullable: false })
-    @JoinColumn({ name: 'band_id' })
-    band: SmartBand;
-
-    @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+    @Prop({ type: Number, default: 0 })
     @IsNumber()
     @Min(0)
     depositAmount: number;
 
-    @Column({
-        type: 'enum',
-        enum: DepositStatus,
-        default: DepositStatus.HELD,
-    })
+    @Prop({ type: String, enum: DepositStatus, default: DepositStatus.HELD })
     depositStatus: DepositStatus;
 
-    @CreateDateColumn()
+    @Prop({ type: Date })
     startTime: Date;
 
-    @Column({ nullable: true })
+    @Prop({ type: Date })
     endTime: Date;
 
-    // Calculated property or status column? Storing explicitly for querying is better.
-    @Column({
-        type: 'enum',
-        enum: RentalStatus,
-        default: RentalStatus.ACTIVE,
-    })
+    @Prop({ type: String, enum: RentalStatus, default: RentalStatus.ACTIVE })
     status: RentalStatus;
 
-    @Column({ nullable: true })
-    returnCondition: string; // 'GOOD', 'DAMAGED'
+    @Prop()
+    returnCondition: string;
 }
+
+export const RentalSchema = SchemaFactory.createForClass(Rental);

@@ -1,127 +1,106 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
-import { SmartBand, BandStatus } from '../database/entities/smart-band.entity';
-import { Rental, RentalStatus, DepositStatus } from '../database/entities/rental.entity';
-import { User } from '../database/entities/user.entity';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Connection } from 'mongoose';
+import { InjectConnection } from '@nestjs/mongoose';
+import { SmartBand, SmartBandDocument, BandStatus } from '../database/entities/smart-band.entity';
+import { Rental, RentalDocument, RentalStatus, DepositStatus } from '../database/entities/rental.entity';
+import { User, UserDocument } from '../database/entities/user.entity';
 import { AssignBandDto, ReturnBandDto, ReturnCondition } from './dto/band-operations.dto';
 
 @Injectable()
 export class BandService {
     constructor(
-        @InjectRepository(SmartBand)
-        private bandRepo: Repository<SmartBand>,
-        @InjectRepository(Rental)
-        private rentalRepo: Repository<Rental>,
-        @InjectRepository(User)
-        private userRepo: Repository<User>,
-        private dataSource: DataSource,
+        @InjectModel(SmartBand.name) private bandModel: Model<SmartBandDocument>,
+        @InjectModel(Rental.name) private rentalModel: Model<RentalDocument>,
+        @InjectModel(User.name) private userModel: Model<UserDocument>,
+        @InjectConnection() private connection: Connection,
     ) { }
 
     async assignBand(data: AssignBandDto) {
         const { userPhoneNumber, macAddress, depositAmount } = data;
 
-        // Start Transaction
-        const queryRunner = this.dataSource.createQueryRunner();
-        await queryRunner.connect();
-        await queryRunner.startTransaction();
+        const session = await this.connection.startSession();
+        session.startTransaction();
 
         try {
-            // 1. Validate Band
-            // Lock the row to prevent race conditions
-            const band = await queryRunner.manager.findOne(SmartBand, {
-                where: { macAddress },
-                lock: { mode: 'pessimistic_write' }
-            });
+            const band = await this.bandModel.findOne({ macAddress }).session(session);
 
             if (!band) throw new NotFoundException('Smart Band not found');
             if (band.status !== BandStatus.AVAILABLE) {
                 throw new ConflictException(`Band is currently ${band.status}`);
             }
 
-            // 2. Validate User
-            const user = await this.userRepo.findOne({ where: { phoneNumber: userPhoneNumber } });
+            const user = await this.userModel.findOne({ phoneNumber: userPhoneNumber }).session(session);
             if (!user) throw new NotFoundException('User not found');
 
-            // 3. Create Rental Record
-            const rental = this.rentalRepo.create({
-                user,
-                band,
+            const rental = new this.rentalModel({
+                user: user._id,
+                band: band._id,
                 depositAmount,
                 depositStatus: DepositStatus.HELD,
                 status: RentalStatus.ACTIVE,
                 startTime: new Date(),
             });
-            await queryRunner.manager.save(rental);
+            await rental.save({ session });
 
-            // 4. Update Band Status
             band.status = BandStatus.RENTED;
-            await queryRunner.manager.save(band);
+            await band.save({ session });
 
-            await queryRunner.commitTransaction();
+            await session.commitTransaction();
 
             return {
                 message: 'Band assigned successfully',
-                rentalId: rental.id,
+                rentalId: rental._id,
                 bandMac: band.macAddress,
                 user: user.fullName
             };
 
         } catch (err) {
-            await queryRunner.rollbackTransaction();
+            await session.abortTransaction();
             throw err;
         } finally {
-            await queryRunner.release();
+            session.endSession();
         }
     }
 
     async returnBand(data: ReturnBandDto) {
         const { macAddress, condition } = data;
 
-        const queryRunner = this.dataSource.createQueryRunner();
-        await queryRunner.connect();
-        await queryRunner.startTransaction();
+        const session = await this.connection.startSession();
+        session.startTransaction();
 
         try {
-            // 1. Find Band
-            const band = await queryRunner.manager.findOne(SmartBand, { where: { macAddress }, lock: { mode: 'pessimistic_write' } });
+            const band = await this.bandModel.findOne({ macAddress }).session(session);
             if (!band) throw new NotFoundException('Smart Band not found');
 
-            // 2. Find Active Rental
-            const rental = await queryRunner.manager.findOne(Rental, {
-                where: {
-                    band: { id: band.id },
-                    status: RentalStatus.ACTIVE
-                },
-                relations: ['user']
-            });
+            const rental = await this.rentalModel.findOne({
+                band: band._id,
+                status: RentalStatus.ACTIVE
+            }).populate('user').session(session);
 
             if (!rental) throw new BadRequestException('No active rental found for this band');
 
-            // 3. Determine New Status & Refund
             let newBandStatus = BandStatus.AVAILABLE;
             let depositStatus = DepositStatus.REFUNDED;
 
             if (condition === ReturnCondition.DAMAGED) {
                 newBandStatus = BandStatus.MAINTENANCE;
-                depositStatus = DepositStatus.FORFEITED; // Or partial, simplified for now
+                depositStatus = DepositStatus.FORFEITED;
             } else if (condition === ReturnCondition.LOST) {
                 newBandStatus = BandStatus.LOST;
                 depositStatus = DepositStatus.FORFEITED;
             }
 
-            // 4. Update Rental
             rental.endTime = new Date();
             rental.status = RentalStatus.COMPLETED;
             rental.returnCondition = condition;
             rental.depositStatus = depositStatus;
-            await queryRunner.manager.save(rental);
+            await rental.save({ session });
 
-            // 5. Update Band
             band.status = newBandStatus;
-            await queryRunner.manager.save(band);
+            await band.save({ session });
 
-            await queryRunner.commitTransaction();
+            await session.commitTransaction();
 
             return {
                 message: 'Band returned successfully',
@@ -130,14 +109,14 @@ export class BandService {
             };
 
         } catch (err) {
-            await queryRunner.rollbackTransaction();
+            await session.abortTransaction();
             throw err;
         } finally {
-            await queryRunner.release();
+            session.endSession();
         }
     }
 
     async getAllBands() {
-        return this.bandRepo.find();
+        return this.bandModel.find().exec();
     }
 }

@@ -1,104 +1,139 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
-import { User } from '../database/entities/user.entity';
-import { Telemetry } from '../database/entities/telemetry.entity';
-import { SmartBand } from '../database/entities/smart-band.entity';
-import { Rental, RentalStatus } from '../database/entities/rental.entity';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { User, UserDocument } from '../database/entities/user.entity';
+import { Telemetry, TelemetryDocument } from '../database/entities/telemetry.entity';
+import { SmartBand, SmartBandDocument } from '../database/entities/smart-band.entity';
+import { Rental, RentalDocument, RentalStatus } from '../database/entities/rental.entity';
 
 @Injectable()
 export class LocationService {
     constructor(
-        @InjectRepository(User)
-        private userRepo: Repository<User>,
-        @InjectRepository(Telemetry)
-        private telemetryRepo: Repository<Telemetry>,
-        @InjectRepository(Rental)
-        private rentalRepo: Repository<Rental>,
+        @InjectModel(User.name) private userModel: Model<UserDocument>,
+        @InjectModel(Telemetry.name) private telemetryModel: Model<TelemetryDocument>,
+        @InjectModel(Rental.name) private rentalModel: Model<RentalDocument>,
     ) { }
 
     async getLatestUserLocations() {
-        // 1. Get active rentals to link Users <-> Bands
-        const activeRentals = await this.rentalRepo.find({
-            where: { status: RentalStatus.ACTIVE },
-            relations: ['user', 'band'],
-        });
-
-        // 2. Ideally, we should fetch the latest telemetry for these bands
-        // For MVP, if User entity has lastKnownLocation updated, use that.
-        // If not, let's query the telemetry table for the latest point per band.
+        const activeRentals = await this.rentalModel.find({ status: RentalStatus.ACTIVE })
+            .populate('user')
+            .populate('band')
+            .exec();
 
         const results = [];
 
         for (const rental of activeRentals) {
-            const latestTelem = await this.telemetryRepo.findOne({
-                where: { bandId: rental.band.macAddress }, // assuming bandId matches macAddress in ingestion
-                order: { timestamp: 'DESC' }
-            });
+            const bandMac = rental.band?.macAddress;
+            if (!bandMac) continue;
+
+            const latestTelem = await this.telemetryModel.findOne({ bandId: bandMac })
+                .sort({ timestamp: -1 })
+                .exec();
 
             if (latestTelem && latestTelem.location) {
                 const loc: any = latestTelem.location;
-                results.push({
-                    userId: rental.user.id,
-                    userName: rental.user.fullName,
-                    bandId: rental.band.macAddress,
-                    lat: loc.coordinates[1],
-                    lon: loc.coordinates[0],
-                    ts: latestTelem.timestamp,
-                    sos: latestTelem.isSos
-                });
+                let lat, lon;
+                if (loc.coordinates) {
+                    lat = loc.coordinates[1];
+                    lon = loc.coordinates[0];
+                } else {
+                    lat = loc.lat;
+                    lon = loc.lng || loc.lon;
+                }
+
+                if (lat && lon) {
+                    results.push({
+                        userId: rental.user._id,
+                        userName: rental.user.fullName,
+                        bandId: bandMac,
+                        lat,
+                        lon,
+                        ts: latestTelem.timestamp,
+                        sos: latestTelem.isSos
+                    });
+                }
             }
         }
         return results;
     }
 
     async getHistory(userId: string, hours: number = 24) {
-        // 1. Find active band for user
-        const rental = await this.rentalRepo.findOne({
-            where: { user: { id: userId }, status: RentalStatus.ACTIVE },
-            relations: ['band']
-        });
+        const rental = await this.rentalModel.findOne({ user: userId, status: RentalStatus.ACTIVE })
+            .populate('band')
+            .exec();
 
-        if (!rental) return [];
+        if (!rental || !rental.band) return [];
 
-        // 2. Query History
         const fromDate = new Date();
         fromDate.setHours(fromDate.getHours() - hours);
 
-        const history = await this.telemetryRepo.find({
-            where: {
-                bandId: rental.band.macAddress,
-                timestamp: Between(fromDate, new Date())
-            },
-            order: { timestamp: 'ASC' },
-            take: 500 // Limit points
-        });
+        const history = await this.telemetryModel.find({
+            bandId: rental.band.macAddress,
+            timestamp: { $gte: fromDate, $lte: new Date() }
+        })
+            .sort({ timestamp: 1 })
+            .limit(500)
+            .exec();
 
         return history.map(h => {
             const loc: any = h.location;
-            return {
-                lat: loc.coordinates[1],
-                lon: loc.coordinates[0],
-                ts: h.timestamp
-            };
-        });
+            let lat, lon;
+            if (loc && loc.coordinates) {
+                lat = loc.coordinates[1];
+                lon = loc.coordinates[0];
+            } else if (loc) {
+                lat = loc.lat;
+                lon = loc.lng || loc.lon;
+            }
+            return { lat, lon, ts: h.timestamp };
+        }).filter(h => h.lat && h.lon);
     }
 
     async getHeatmap() {
-        // Use raw query for PostGIS clustering/aggregation
-        // Simple grid aggregation: Round lat/lon to 4 decimal places and count
-        const query = `
-        SELECT 
-            ST_X(location::geometry) as lon, 
-            ST_Y(location::geometry) as lat,
-            COUNT(*) as distinct_count
-        FROM device_telemetry
-        WHERE timestamp > NOW() - INTERVAL '48 hours'
-        GROUP BY location
-        LIMIT 2000;
-      `;
-        // Note: In real production, use ST_SnapToGrid or HexGrid
-        const raw = await this.telemetryRepo.query(query);
-        return raw.map(r => ({ lat: r.lat, lon: r.lon, weight: r.distinct_count }));
+        const fromDate = new Date();
+        fromDate.setHours(fromDate.getHours() - 48);
+
+        const raw = await this.telemetryModel.aggregate([
+            { $match: { timestamp: { $gte: fromDate } } },
+            { $limit: 2000 },
+            {
+                $project: {
+                    lat: {
+                        $cond: {
+                            if: { $isArray: "$location.coordinates" },
+                            then: { $arrayElemAt: ["$location.coordinates", 1] },
+                            else: "$location.lat"
+                        }
+                    },
+                    lon: {
+                        $cond: {
+                            if: { $isArray: "$location.coordinates" },
+                            then: { $arrayElemAt: ["$location.coordinates", 0] },
+                            else: { $ifNull: ["$location.lng", "$location.lon"] }
+                        }
+                    }
+                }
+            },
+            { $match: { lat: { $ne: null }, lon: { $ne: null } } },
+            {
+                $group: {
+                    _id: {
+                        lat: { $round: ["$lat", 4] },
+                        lon: { $round: ["$lon", 4] }
+                    },
+                    weight: { $sum: 1 }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    lat: "$_id.lat",
+                    lon: "$_id.lon",
+                    weight: 1
+                }
+            }
+        ]).exec();
+
+        return raw;
     }
 }

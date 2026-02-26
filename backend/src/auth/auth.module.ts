@@ -1,16 +1,16 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { User } from '../database/entities/user.entity';
-import { Role } from '../database/entities/role.entity';
+import { User, UserSchema } from '../database/entities/user.entity';
+import { Role, RoleSchema } from '../database/entities/role.entity';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([User, Role]),
+        MongooseModule.forFeature([{ name: User.name, schema: UserSchema }, { name: Role.name, schema: RoleSchema }]),
         PassportModule,
         JwtModule.register({
             secret: process.env.JWT_SECRET || 'fallback_secret',

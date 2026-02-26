@@ -1,41 +1,36 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Index } from 'typeorm';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document, Schema as MongooseSchema } from 'mongoose';
 
-@Entity('device_telemetry')
-@Index(['bandId', 'timestamp']) // Optimize for time-series queries
+export type TelemetryEntityDocument = TelemetryEntity & Document;
+
+@Schema({ timestamps: false, collection: 'device_telemetry' })
 export class TelemetryEntity {
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+    @Prop({ required: true, index: true })
+    bandId: string;
 
-    @Column()
-    bandId: string; // Storing the MAC/ID directly for speed
-
-    @Column({ type: 'timestamptz' })
+    @Prop({ type: Date, required: true, index: true })
     timestamp: Date;
 
-    // PostGIS Point (lon, lat)
-    @Column({
-        type: 'geometry',
-        spatialFeatureType: 'Point',
-        srid: 4326,
-        nullable: true
-    })
+    @Prop({ type: MongooseSchema.Types.Mixed })
     location: object;
 
-    @Column({ type: 'float', nullable: true })
+    @Prop()
     heartRate: number;
 
-    @Column({ type: 'float', nullable: true })
+    @Prop()
     spO2: number;
 
-    @Column({ type: 'float', nullable: true })
+    @Prop()
     temperature: number;
 
-    @Column({ type: 'int', nullable: true })
+    @Prop()
     batteryLevel: number;
 
-    @Column({ default: false })
+    @Prop({ default: false })
     isSos: boolean;
 
-    @Column({ type: 'jsonb', nullable: true })
+    @Prop({ type: MongooseSchema.Types.Mixed })
     rawPayload: any;
 }
+
+export const TelemetryEntitySchema = SchemaFactory.createForClass(TelemetryEntity);

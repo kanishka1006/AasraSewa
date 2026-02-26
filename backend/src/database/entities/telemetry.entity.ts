@@ -1,38 +1,36 @@
-import { Entity, Column, PrimaryGeneratedColumn, Index } from 'typeorm';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document, Schema as MongooseSchema } from 'mongoose';
 
-@Entity('device_telemetry')
-@Index(['bandId', 'timestamp'])
+export type TelemetryDocument = Telemetry & Document;
+
+@Schema({ timestamps: false })
 export class Telemetry {
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
-
-    @Column()
+    @Prop({ required: true, index: true })
     bandId: string;
 
-    @Column({ type: 'timestamptz' })
+    @Prop({ type: Date, required: true, index: true })
     timestamp: Date;
 
-    @Column({
-        type: 'jsonb',
-        nullable: true
-    })
+    @Prop({ type: MongooseSchema.Types.Mixed })
     location: object;
 
-    @Column({ type: 'float', nullable: true })
+    @Prop()
     heartRate: number;
 
-    @Column({ type: 'float', nullable: true })
+    @Prop()
     spO2: number;
 
-    @Column({ type: 'float', nullable: true })
+    @Prop()
     temperature: number;
 
-    @Column({ type: 'int', nullable: true })
+    @Prop()
     batteryLevel: number;
 
-    @Column({ default: false })
+    @Prop({ default: false })
     isSos: boolean;
 
-    @Column({ type: 'jsonb', nullable: true })
+    @Prop({ type: MongooseSchema.Types.Mixed })
     rawPayload: any;
 }
+
+export const TelemetrySchema = SchemaFactory.createForClass(Telemetry);

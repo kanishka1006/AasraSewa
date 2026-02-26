@@ -1,15 +1,15 @@
-import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { User } from '../entities/user.entity';
-import { Role, UserRole } from '../entities/role.entity';
-import { SmartBand, BandStatus } from '../entities/smart-band.entity';
-import { Rental, RentalStatus, DepositStatus } from '../entities/rental.entity';
+import { Connection } from 'mongoose';
+import { User, UserSchema } from '../entities/user.entity';
+import { Role, RoleSchema, UserRole } from '../entities/role.entity';
+import { SmartBand, SmartBandSchema, BandStatus } from '../entities/smart-band.entity';
+import { Rental, RentalSchema, RentalStatus, DepositStatus } from '../entities/rental.entity';
 
-export const seedDatabase = async (dataSource: DataSource) => {
-    const roleRepo = dataSource.getRepository(Role);
-    const userRepo = dataSource.getRepository(User);
-    const bandRepo = dataSource.getRepository(SmartBand);
-    const rentalRepo = dataSource.getRepository(Rental);
+export const seedDatabase = async (connection: Connection) => {
+    const roleModel = connection.model(Role.name, RoleSchema);
+    const userModel = connection.model(User.name, UserSchema);
+    const bandModel = connection.model(SmartBand.name, SmartBandSchema);
+    const rentalModel = connection.model(Rental.name, RentalSchema);
 
     // 1. Seed Roles
     const rolesData = [
@@ -18,45 +18,40 @@ export const seedDatabase = async (dataSource: DataSource) => {
         { name: UserRole.CITIZEN, description: 'Regular User', permissions: { sos: true } },
     ];
 
-    const savedRoles: Record<string, Role> = {};
+    const savedRoles: Record<string, any> = {};
     for (const r of rolesData) {
-        let role = await roleRepo.findOneBy({ name: r.name });
+        let role = await roleModel.findOne({ name: r.name });
         if (!role) {
-            role = roleRepo.create(r);
-            await roleRepo.save(role);
+            role = await roleModel.create(r);
         }
         savedRoles[r.name] = role;
     }
-
-    // 2. Seed Users
 
     // 2. Seed Users
     const password = 'password123';
     const salt = await bcrypt.genSalt();
     const hash = await bcrypt.hash(password, salt);
 
-    let adminUser = await userRepo.findOneBy({ phoneNumber: '+919999999999' });
+    let adminUser = await userModel.findOne({ phoneNumber: '+919999999999' });
     if (!adminUser) {
-        adminUser = userRepo.create({
+        adminUser = await userModel.create({
             fullName: 'System Admin',
             phoneNumber: '+919999999999',
             passwordHash: hash,
-            role: savedRoles[UserRole.ADMIN],
+            role: savedRoles[UserRole.ADMIN]._id,
             isSafe: true,
         });
-        await userRepo.save(adminUser);
     }
 
-    let citizenUser = await userRepo.findOneBy({ phoneNumber: '+919876543210' });
+    let citizenUser = await userModel.findOne({ phoneNumber: '+919876543210' });
     if (!citizenUser) {
-        citizenUser = userRepo.create({
+        citizenUser = await userModel.create({
             fullName: 'Rohan Gupta',
             phoneNumber: '+919876543210',
             passwordHash: hash,
-            role: savedRoles[UserRole.CITIZEN],
+            role: savedRoles[UserRole.CITIZEN]._id,
             isSafe: true,
         });
-        await userRepo.save(citizenUser);
     }
 
     // Seed Specific Users requested
@@ -68,61 +63,53 @@ export const seedDatabase = async (dataSource: DataSource) => {
     ];
 
     for (const u of newUsers) {
-        let user = await userRepo.findOneBy({ phoneNumber: u.phone });
+        let user = await userModel.findOne({ phoneNumber: u.phone });
         if (!user) {
-            user = userRepo.create({
+            user = await userModel.create({
                 fullName: u.name,
                 phoneNumber: u.phone,
                 age: u.age,
                 passwordHash: hash,
-                role: savedRoles[UserRole.CITIZEN],
+                role: savedRoles[UserRole.CITIZEN]._id,
                 isSafe: true,
             });
         } else {
-            // Update existing user to ensure password/details are correct
             user.fullName = u.name;
             user.age = u.age;
             user.passwordHash = hash;
-            // distinct from create, we just update fields we want to enforce
+            await user.save();
         }
-        await userRepo.save(user);
     }
 
     // 3. Seed Smart Bands
-    let band1 = await bandRepo.findOneBy({ macAddress: '00:1B:44:11:3A:B7' });
+    let band1 = await bandModel.findOne({ macAddress: '00:1B:44:11:3A:B7' });
     if (!band1) {
-        band1 = bandRepo.create({
+        band1 = await bandModel.create({
             macAddress: '00:1B:44:11:3A:B7',
             firmwareVersion: 'v1.0.4',
             batteryLevel: 98,
             status: BandStatus.AVAILABLE,
         });
-        await bandRepo.save(band1);
     }
 
-    // 4. Seed Active Rental (Rohan checks out Band1)
-    // Only create rental if we just created the band or if it's available, otherwise skip to avoid complexity in seed
-    const activeRental = await rentalRepo.findOne({
-        where: {
-            user: { id: citizenUser.id },
-            status: RentalStatus.ACTIVE
-        }
+    // 4. Seed Active Rental
+    const activeRental = await rentalModel.findOne({
+        user: citizenUser._id,
+        status: RentalStatus.ACTIVE
     });
 
     if (!activeRental && band1.status === BandStatus.AVAILABLE) {
-        const rental = rentalRepo.create({
-            user: citizenUser,
-            band: band1,
+        await rentalModel.create({
+            user: citizenUser._id,
+            band: band1._id,
             depositAmount: 500.00,
             depositStatus: DepositStatus.HELD,
             status: RentalStatus.ACTIVE,
             startTime: new Date(),
         });
-        await rentalRepo.save(rental);
 
-        // Update Band Status
         band1.status = BandStatus.RENTED;
-        await bandRepo.save(band1);
+        await band1.save();
     }
 
     console.log('✅ Database Seeded Successfully');

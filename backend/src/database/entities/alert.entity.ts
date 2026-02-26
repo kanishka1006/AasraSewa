@@ -1,5 +1,5 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn, UpdateDateColumn, JoinColumn } from 'typeorm';
-import { User } from './user.entity';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document, Schema as MongooseSchema } from 'mongoose';
 
 export enum AlertStatus {
     OPEN = 'OPEN',
@@ -15,54 +15,36 @@ export enum AlertPriority {
     CRITICAL = 'CRITICAL',
 }
 
-@Entity('sos_alerts')
+export type SosAlertDocument = SosAlert & Document;
+
+@Schema({ timestamps: true })
 export class SosAlert {
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+    @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User' })
+    victim: any;
 
-    // The Victim
-    @ManyToOne(() => User, (user) => user.alerts)
-    @JoinColumn({ name: 'victimId' })
-    victim: User;
-
-    @Column({ nullable: true })
+    @Prop()
     victimId: string;
 
-    // The Rescuer
-    @ManyToOne(() => User, { nullable: true })
-    @JoinColumn({ name: 'rescuerId' })
-    rescuer: User;
+    @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User' })
+    rescuer: any;
 
-    @Column({ nullable: true })
+    @Prop()
     rescuerId: string;
 
-    @Column({
-        type: 'enum',
-        enum: AlertStatus,
-        default: AlertStatus.OPEN,
-    })
+    @Prop({ type: String, enum: AlertStatus, default: AlertStatus.OPEN })
     status: AlertStatus;
 
-    @Column({
-        type: 'enum',
-        enum: AlertPriority,
-        default: AlertPriority.HIGH,
-    })
+    @Prop({ type: String, enum: AlertPriority, default: AlertPriority.HIGH })
     priority: AlertPriority;
 
-    // Snapshot location where SOS was triggered
-    @Column({
-        type: 'jsonb',
-        nullable: true,
-    })
+    @Prop({ type: MongooseSchema.Types.Mixed })
     location: object;
 
-    @Column({ type: 'text', nullable: true })
-    notes: string; // Resolution notes or logs
+    @Prop()
+    notes: string;
 
-    @CreateDateColumn()
-    createdAt: Date;
-
-    @Column({ type: 'timestamptz', nullable: true })
+    @Prop({ type: Date })
     resolvedAt: Date;
 }
+
+export const SosAlertSchema = SchemaFactory.createForClass(SosAlert);
