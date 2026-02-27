@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
@@ -12,14 +12,51 @@ import {
   LogOut,
   Menu,
   X,
-  CloudRain
+  CloudRain,
+  AlertTriangle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(true);
+  const [notification, setNotification] = useState<{title: string, message: string} | null>(null);
   const pathname = usePathname();
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+
+    const eventSourceAlerts = new EventSource(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/alerts/stream`);
+    const eventSourceSos = new EventSource(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/sos/stream`);
+
+    const handleMessage = (event: MessageEvent) => {
+        try {
+            const data = JSON.parse(event.data);
+            const title = "🚨 New Rescue Operation!";
+            const message = data.type ? `${data.type} Alert at ${data.location}` : `SOS Emergency: ${data.notes || 'User generated alert'}`;
+            
+            setNotification({ title, message });
+
+            if ("Notification" in window && Notification.permission === "granted") {
+               new Notification(title, { body: message });
+            }
+            
+            setTimeout(() => setNotification(null), 8000);
+        } catch (e) {
+            console.error("Error parsing SSE data:", e);
+        }
+    };
+
+    eventSourceAlerts.onmessage = handleMessage;
+    eventSourceSos.onmessage = handleMessage;
+
+    return () => {
+        eventSourceAlerts.close();
+        eventSourceSos.close();
+    };
+  }, []);
 
   const links = [
     { href: "/admin", label: "Overview", icon: Activity },
@@ -98,7 +135,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </motion.aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto p-4 lg:p-8">
+      <main className="flex-1 overflow-auto p-4 lg:p-8 relative">
+        <AnimatePresence>
+            {notification && (
+                <motion.div 
+                   initial={{ opacity: 0, y: -20, x: 20 }}
+                   animate={{ opacity: 1, y: 0, x: 0 }}
+                   exit={{ opacity: 0, y: -20, x: 20 }}
+                   className="fixed top-8 right-8 z-50 bg-red-600 text-white p-4 rounded-xl shadow-2xl flex items-start gap-3 max-w-sm"
+                >
+                    <AlertTriangle className="w-6 h-6 shrink-0" />
+                    <div>
+                        <h4 className="font-bold text-lg leading-tight mb-1">{notification.title}</h4>
+                        <p className="text-red-100 text-sm leading-snug">{notification.message}</p>
+                    </div>
+                    <button onClick={() => setNotification(null)} className="ml-2 hover:bg-red-700 p-1 rounded-full bg-red-600/50">
+                        <X className="w-4 h-4" />
+                    </button>
+                </motion.div>
+            )}
+        </AnimatePresence>
         {children}
       </main>
     </div>

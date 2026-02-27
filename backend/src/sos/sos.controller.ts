@@ -1,10 +1,12 @@
-import { Controller, Post, Get, Body, UseGuards, Put } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, Put, Sse, MessageEvent } from '@nestjs/common';
 import { SosService } from './sos.service';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../database/entities/role.entity';
 import { CreateSosDto, AssignRescuerDto, UpdateSosStatusDto } from './dto/sos.dto';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 @Controller('sos')
 @UseGuards(AuthGuard('jwt'))
@@ -36,5 +38,12 @@ export class SosController {
     @Roles(UserRole.ADMIN, UserRole.SHELTER_MANAGER)
     async updateStatus(@Body() dto: UpdateSosStatusDto) {
         return this.sosService.updateStatus(dto);
+    }
+
+    @Sse('stream')
+    stream(): Observable<MessageEvent> {
+        return this.sosService.alertSubject.asObservable().pipe(
+            map((alert) => ({ data: alert } as MessageEvent)),
+        );
     }
 }

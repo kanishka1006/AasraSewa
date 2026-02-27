@@ -4,9 +4,12 @@ import { Model } from 'mongoose';
 import { SosAlert, SosAlertDocument, AlertStatus, AlertPriority } from '../database/entities/alert.entity';
 import { User, UserDocument } from '../database/entities/user.entity';
 import { CreateSosDto, UpdateSosStatusDto, AssignRescuerDto } from './dto/sos.dto';
+import { Subject } from 'rxjs';
 
 @Injectable()
 export class SosService {
+    public readonly alertSubject = new Subject<SosAlertDocument>();
+
     constructor(
         @InjectModel(SosAlert.name) private alertModel: Model<SosAlertDocument>,
         @InjectModel(User.name) private userModel: Model<UserDocument>,
@@ -26,7 +29,9 @@ export class SosService {
                 : user.lastKnownLocation
         });
 
-        return alert.save();
+        const savedAlert = await alert.save();
+        this.alertSubject.next(savedAlert);
+        return savedAlert;
     }
 
     async getActiveAlerts() {
