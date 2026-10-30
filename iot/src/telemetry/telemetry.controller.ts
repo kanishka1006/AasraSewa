@@ -35,6 +35,9 @@ export class TelemetryController {
         const topic = context.getTopic();
         const bandId = topic.split('/')[1];
         // Immediate processing
-        this.telemetryService.processTelemetry(bandId, { ...data, sos: true });
+        if (typeof data === 'string') {
+            try { data = JSON.parse(data); } catch { return; }
+        }
+        await this.telemetryService.processTelemetry(bandId, { ...data, sos: true });
     }
 }

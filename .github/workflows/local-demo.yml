@@ -1,0 +1,29 @@
+name: Local demo
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  fresh-setup:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: npm run setup
+      - run: npm test
+      - run: npm run smoke
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: service-logs-${{ matrix.os }}
+          path: logs/*.log

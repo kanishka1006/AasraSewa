@@ -41,7 +41,7 @@ export class LocationService {
                     lon = loc.lng || loc.lon;
                 }
 
-                if (lat && lon) {
+                if (Number.isFinite(lat) && Number.isFinite(lon)) {
                     results.push({
                         userId: rental.user._id,
                         userName: rental.user.fullName,
@@ -49,7 +49,12 @@ export class LocationService {
                         lat,
                         lon,
                         ts: latestTelem.timestamp,
-                        sos: latestTelem.isSos
+                        sos: latestTelem.isSos,
+                        heartRate: latestTelem.heartRate,
+                        spO2: latestTelem.spO2,
+                        temperature: latestTelem.temperature,
+                        batteryLevel: latestTelem.batteryLevel,
+                        source: latestTelem.rawPayload?.source || 'device'
                     });
                 }
             }

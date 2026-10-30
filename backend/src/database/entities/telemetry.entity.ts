@@ -3,7 +3,7 @@ import { Document, Schema as MongooseSchema } from 'mongoose';
 
 export type TelemetryDocument = Telemetry & Document;
 
-@Schema({ timestamps: false })
+@Schema({ timestamps: false, collection: 'device_telemetry' })
 export class Telemetry {
     @Prop({ required: true, index: true })
     bandId: string;

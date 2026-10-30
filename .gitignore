@@ -35,3 +35,8 @@ out/
 # Additional Environment Ignore
 .env*
 *.env
+!.env.example
+!.env.esp32.example
+
+# ESP32 local Wi-Fi and broker credentials
+iot/esp32/config.h

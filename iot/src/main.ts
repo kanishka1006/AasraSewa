@@ -14,5 +14,6 @@ async function bootstrap() {
 
     await app.listen();
     console.log('🚀 IoT Ingestion Service is listening via MQTT...');
+    if (process.send) process.send({ type: 'ready' });
 }
 bootstrap();

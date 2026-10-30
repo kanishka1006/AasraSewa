@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { TelemetryController } from './telemetry/telemetry.controller';
 import { TelemetryService } from './telemetry/telemetry.service';
@@ -7,8 +7,11 @@ import { TelemetryEntity, TelemetryEntitySchema } from './telemetry/telemetry.en
 
 @Module({
     imports: [
-        ConfigModule.forRoot(),
-        MongooseModule.forRoot(process.env.MONGODB_URI || 'mongodb+srv://sanotratopraguni_db_user:kannu123@cluster0.w030zx1.mongodb.net/?appName=Cluster0'),
+        ConfigModule.forRoot({ isGlobal: true }),
+        MongooseModule.forRootAsync({
+            inject: [ConfigService],
+            useFactory: (config: ConfigService) => ({ uri: config.get<string>('MONGODB_URI') || 'mongodb://127.0.0.1:27017/aasrasewa' }),
+        }),
         MongooseModule.forFeature([{ name: TelemetryEntity.name, schema: TelemetryEntitySchema }])
     ],
     controllers: [TelemetryController],

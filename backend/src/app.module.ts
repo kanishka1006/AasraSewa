@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { BandModule } from './bands/bands.module';
 import { LocationModule } from './location/location.module';
@@ -13,7 +13,10 @@ import { LoggerModule } from './logger/logger.module';
 @Module({
     imports: [
         ConfigModule.forRoot({ isGlobal: true }),
-        MongooseModule.forRoot(process.env.MONGODB_URI || 'mongodb+srv://sanotratopraguni_db_user:kannu123@cluster0.w030zx1.mongodb.net/?appName=Cluster0'),
+        MongooseModule.forRootAsync({
+            inject: [ConfigService],
+            useFactory: (config: ConfigService) => ({ uri: config.get<string>('MONGODB_URI') || 'mongodb://127.0.0.1:27017/aasrasewa' }),
+        }),
         LoggerModule,
         AuthModule,
         BandModule,

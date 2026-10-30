@@ -1,0 +1,23 @@
+{
+  "name": "aasrasewa-local",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Setup and run the AasraSewa local demonstration",
+  "engines": { "node": ">=22" },
+  "config": { "mongodbMemoryServer": { "disablePostinstall": true } },
+  "scripts": {
+    "setup": "node scripts/setup.cjs",
+    "start": "node scripts/start.cjs",
+    "dev": "node scripts/start.cjs",
+    "smoke": "node scripts/start.cjs --smoke",
+    "doctor": "node scripts/doctor.cjs",
+    "demo": "node scripts/iot-demo.cjs --sos --resolve",
+    "gateway": "node --env-file=.env.esp32 scripts/esp32-gateway.cjs",
+    "test": "node --test scripts/local-config.test.cjs"
+  },
+  "dependencies": {
+    "aedes": "0.51.3",
+    "mongodb-memory-server": "10.4.3",
+    "mqtt": "5.14.1"
+  }
+}

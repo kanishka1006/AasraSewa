@@ -60,6 +60,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const links = [
     { href: "/admin", label: "Overview", icon: Activity },
+    { href: "/admin/iot", label: "IoT Monitor", icon: Radio },
     { href: "/admin/rescue", label: "Rescue Ops", icon: Radio },
     { href: "/admin/map", label: "Live Map", icon: Map },
     { href: "/admin/weather", label: "Weather AI", icon: CloudRain },

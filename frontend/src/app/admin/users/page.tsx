@@ -3,8 +3,17 @@
 import { useState, useEffect } from "react";
 import { Search, Battery, Wifi, Shield, ShieldAlert, MoreVertical, Loader2 } from "lucide-react";
 
+type User = {
+    _id?: string;
+    id?: string;
+    fullName: string;
+    age?: number;
+    phoneNumber: string;
+    isSafe: boolean;
+};
+
 export default function UsersPage() {
-    const [users, setUsers] = useState<any[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -66,8 +75,10 @@ export default function UsersPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {users.map((user) => (
-              <tr key={user.id} className="hover:bg-slate-50 group">
+            {users.map((user) => {
+              const userId = user._id || user.id;
+              return (
+              <tr key={userId || user.phoneNumber} className="hover:bg-slate-50 group">
                 <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center font-bold text-indigo-600">
@@ -75,7 +86,7 @@ export default function UsersPage() {
                         </div>
                         <div>
                             <p className="font-semibold text-slate-800">{user.fullName}</p>
-                            <p className="text-xs text-slate-500">ID: {user.id.slice(0, 8)}...</p>
+                            <p className="text-xs text-slate-500">ID: {userId ? `${userId.slice(0, 8)}...` : 'N/A'}</p>
                         </div>
                     </div>
                 </td>
@@ -109,7 +120,8 @@ export default function UsersPage() {
                     </button>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

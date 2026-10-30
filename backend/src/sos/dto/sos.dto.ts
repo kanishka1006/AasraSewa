@@ -1,8 +1,8 @@
-import { IsString, IsEnum, IsUUID, IsOptional } from 'class-validator';
+import { IsString, IsEnum, IsMongoId, IsOptional } from 'class-validator';
 import { AlertStatus, AlertPriority } from '../../database/entities/alert.entity';
 
 export class CreateSosDto {
-    @IsUUID()
+    @IsMongoId()
     userId: string;
 
     @IsString()
@@ -18,7 +18,7 @@ export class CreateSosDto {
 }
 
 export class UpdateSosStatusDto {
-    @IsUUID()
+    @IsMongoId()
     alertId: string;
 
     @IsEnum(AlertStatus)
@@ -30,9 +30,9 @@ export class UpdateSosStatusDto {
 }
 
 export class AssignRescuerDto {
-    @IsUUID()
+    @IsMongoId()
     alertId: string;
 
-    @IsUUID()
+    @IsMongoId()
     rescuerId: string;
 }
