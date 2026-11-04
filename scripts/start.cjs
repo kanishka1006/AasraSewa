@@ -77,15 +77,27 @@ async function main() {
     if (!fs.existsSync(pythonPath(ROOT))) throw new Error('AI virtual environment is missing. Run npm run setup first.');
     const backendEnv = envFile(path.join(ROOT, 'backend/.env'));
     const iotEnv = envFile(path.join(ROOT, 'iot/.env'));
-    if (backendEnv.MONGODB_URI !== 'mongodb://127.0.0.1:27017/aasrasewa' || iotEnv.MONGODB_URI !== backendEnv.MONGODB_URI) {
-        throw new Error('npm start manages the local aasrasewa database. Use matching local MONGODB_URI values in backend/.env and iot/.env, or start custom infrastructure manually.');
+    const localMongoUri = 'mongodb://127.0.0.1:27017/aasrasewa';
+    const usingLocalMongo = backendEnv.MONGODB_URI === localMongoUri;
+    const usingAtlas = typeof backendEnv.MONGODB_URI === 'string' && backendEnv.MONGODB_URI.startsWith('mongodb+srv://');
+    if (!backendEnv.MONGODB_URI || iotEnv.MONGODB_URI !== backendEnv.MONGODB_URI) {
+        throw new Error('backend/.env and iot/.env must share the same MONGODB_URI.');
     }
-    for (const port of [27017, 1883, 3001, 3002, 3003, 8000]) {
+    if (!usingLocalMongo && !usingAtlas) {
+        throw new Error('MONGODB_URI must be the local aasrasewa URI or a mongodb+srv Atlas URI.');
+    }
+    const ports = usingLocalMongo
+        ? [27017, 1883, 3001, 3002, 3003, 8000]
+        : [1883, 3001, 3002, 3003, 8000];
+    for (const port of ports) {
         if (await portOpen(port)) throw new Error(`Port ${port} is already in use. Stop your previous local stack before npm start; no existing processes were stopped.`);
     }
     fs.mkdirSync(path.join(ROOT, 'logs'), { recursive: true });
-    const infrastructure = launch('infrastructure', process.execPath, ['scripts/local-infrastructure.cjs']);
-    await ready(infrastructure, 600000); // The first MongoDB binary download can take several minutes.
+    const infraArgs = usingAtlas
+        ? ['scripts/local-infrastructure.cjs', '--mqtt-only']
+        : ['scripts/local-infrastructure.cjs'];
+    const infrastructure = launch('infrastructure', process.execPath, infraArgs);
+    await ready(infrastructure, usingAtlas ? 30000 : 600000); // Local MongoDB binary download can take several minutes.
     await once(launch('seed', process.execPath, ['dist/database/scripts/run-seed.js'], path.join(ROOT, 'backend'), backendEnv, false));
     launch('backend', process.execPath, ['dist/main.js'], path.join(ROOT, 'backend'), backendEnv);
     await waitPort(3001);

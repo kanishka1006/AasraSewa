@@ -13,7 +13,8 @@
     "doctor": "node scripts/doctor.cjs",
     "demo": "node scripts/iot-demo.cjs --sos --resolve",
     "gateway": "node --env-file=.env.esp32 scripts/esp32-gateway.cjs",
-    "test": "node --test scripts/local-config.test.cjs"
+    "gps": "node scripts/gps-bridge.cjs",
+    "test": "node --test scripts/local-config.test.cjs scripts/gps-nmea.test.cjs"
   },
   "dependencies": {
     "aedes": "0.51.3",

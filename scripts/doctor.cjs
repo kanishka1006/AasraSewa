@@ -1,4 +1,7 @@
+const fs = require('node:fs');
+const path = require('node:path');
 const net = require('node:net');
+const { ROOT, envFile } = require('./local-config.cjs');
 
 function portOpen(port, host = '127.0.0.1') {
     return new Promise(resolve => {
@@ -11,8 +14,13 @@ function portOpen(port, host = '127.0.0.1') {
 }
 async function doctor() {
     let failed = false;
+    const backendEnvPath = path.join(ROOT, 'backend/.env');
+    const mongoUri = fs.existsSync(backendEnvPath) ? envFile(backendEnvPath).MONGODB_URI : '';
+    const usingAtlas = typeof mongoUri === 'string' && mongoUri.startsWith('mongodb+srv://');
     const checks = [
-        ['MongoDB', () => portOpen(27017)],
+        ...(usingAtlas
+            ? [['MongoDB Atlas URI', async () => Boolean(mongoUri)]]
+            : [['MongoDB', () => portOpen(27017)]]),
         ['Internal MQTT broker', () => portOpen(1883)],
         ['Main app', async () => (await fetch('http://127.0.0.1:3002', { signal: AbortSignal.timeout(120000) })).ok],
         ['Rescue portal', async () => (await fetch('http://127.0.0.1:3003', { signal: AbortSignal.timeout(120000) })).ok],

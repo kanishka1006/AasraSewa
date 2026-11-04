@@ -69,7 +69,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 flex overflow-x-hidden text-slate-900">
       {/* Sidebar */}
       <motion.aside 
         initial={{ width: 280 }}
@@ -106,14 +106,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Link key={link.href} href={link.href}>
                 <div className={`
                    flex items-center gap-4 px-4 py-3 rounded-xl transition-all cursor-pointer group
-                   ${isActive ? 'bg-blue-600 shadow-lg shadow-blue-900/50' : 'hover:bg-slate-800 text-slate-400 hover:text-white'}
+                   ${isActive ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'hover:bg-slate-800 text-slate-400 hover:text-white'}
                 `}>
                   <link.icon className={`w-6 h-6 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
                   {isOpen && (
                     <motion.span 
                       initial={{ opacity: 0 }} 
                       animate={{ opacity: 1 }} 
-                      className="font-medium whitespace-nowrap"
+                      className={`font-medium whitespace-nowrap ${isActive ? 'text-white' : ''}`}
                     >
                       {link.label}
                     </motion.span>
@@ -136,7 +136,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </motion.aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto p-4 lg:p-8 relative">
+      <main className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-4 lg:p-8 relative text-slate-900">
         <AnimatePresence>
             {notification && (
                 <motion.div 

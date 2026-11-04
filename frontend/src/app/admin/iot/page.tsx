@@ -87,29 +87,45 @@ export default function IotMonitor() {
       <p className="rounded-xl bg-blue-50 p-4 text-blue-900">
         Only devices assigned to an active wearer appear here. Rows marked “simulator” contain generated test readings.
       </p>
-      <div className="overflow-x-auto rounded-xl border bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-100"><tr>{["Wearer / Band", "Publisher", "Last packet", "GPS", "Heart rate", "SpO₂", "Temperature", "Battery", "SOS"].map(label => <th key={label} className="p-3">{label}</th>)}</tr></thead>
-          <tbody>{readings.map(reading => <tr key={reading.bandId} className="border-t">
-            <td className="p-3 font-medium">{reading.userName}<br /><code className="text-xs">{reading.bandId}</code></td>
-            <td className="p-3">{reading.source}</td>
-            <td className="p-3">{new Date(reading.ts).toLocaleTimeString()}<br />{Date.now() - Date.parse(reading.ts) > 15000 ? "Stale (>15s)" : "Recent (<15s)"}</td>
-            <td className="p-3 font-mono">{reading.lat.toFixed(5)}, {reading.lon.toFixed(5)}</td>
-            <td className="p-3">{showValue(reading.heartRate, " bpm")}</td>
-            <td className="p-3">{showValue(reading.spO2, "%")}</td>
-            <td className="p-3">{showValue(reading.temperature, " °C")}</td>
-            <td className="p-3">{showValue(reading.batteryLevel, "%")}</td>
-            <td className={`p-3 font-bold ${activeVictims.has(reading.userId) ? "text-red-600" : "text-green-700"}`}>{activeVictims.has(reading.userId) ? "ACTIVE" : "None"}</td>
-          </tr>)}</tbody>
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+        <table className="w-full min-w-[900px] text-left text-sm text-slate-800">
+          <thead className="bg-slate-100 text-slate-700">
+            <tr>
+              {["Wearer / Band", "Publisher", "Last packet", "GPS", "Heart rate", "SpO₂", "Temperature", "Battery", "SOS"].map(label => (
+                <th key={label} className="p-3 font-semibold whitespace-nowrap">{label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {readings.map(reading => (
+              <tr key={reading.bandId} className="border-t border-slate-100">
+                <td className="p-3 font-medium text-slate-900">{reading.userName}<br /><code className="text-xs text-slate-500">{reading.bandId}</code></td>
+                <td className="p-3">{reading.source}</td>
+                <td className="p-3">{new Date(reading.ts).toLocaleTimeString()}<br /><span className="text-slate-500">{Date.now() - Date.parse(reading.ts) > 15000 ? "Stale (>15s)" : "Recent (<15s)"}</span></td>
+                <td className="p-3 font-mono text-xs">{reading.lat.toFixed(5)}, {reading.lon.toFixed(5)}</td>
+                <td className="p-3">{showValue(reading.heartRate, " bpm")}</td>
+                <td className="p-3">{showValue(reading.spO2, "%")}</td>
+                <td className="p-3">{showValue(reading.temperature, " °C")}</td>
+                <td className="p-3">{showValue(reading.batteryLevel, "%")}</td>
+                <td className={`p-3 font-bold ${activeVictims.has(reading.userId) ? "text-red-600" : "text-green-700"}`}>{activeVictims.has(reading.userId) ? "ACTIVE" : "None"}</td>
+              </tr>
+            ))}
+          </tbody>
         </table>
         {!readings.length && <p className="p-6 text-slate-500">Waiting for telemetry from an assigned band.</p>}
       </div>
       <section className="space-y-3">
-        <h2 className="text-xl font-bold">Active SOS alerts ({alerts.length})</h2>
-        {alerts.map(alert => <div key={alert._id} className="flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 p-4">
-          <div><strong>{alert.victim?.fullName || "Unknown wearer"}</strong><p>{alert.notes}</p><p className="text-xs">{alert.status} · {alert._id}</p></div>
-          <button onClick={() => resolveAlert(alert._id)} className="rounded-lg bg-green-700 px-4 py-2 text-white">Resolve</button>
-        </div>)}
+        <h2 className="text-xl font-bold text-slate-800">Active SOS alerts ({alerts.length})</h2>
+        {alerts.map(alert => (
+          <div key={alert._id} className="flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 p-4 text-slate-800">
+            <div>
+              <strong className="text-slate-900">{alert.victim?.fullName || "Unknown wearer"}</strong>
+              <p className="text-slate-700">{alert.notes}</p>
+              <p className="text-xs text-slate-500">{alert.status} · {alert._id}</p>
+            </div>
+            <button onClick={() => resolveAlert(alert._id)} className="rounded-lg bg-green-700 px-4 py-2 text-white">Resolve</button>
+          </div>
+        ))}
         {!alerts.length && <p className="text-slate-500">No active SOS alerts.</p>}
       </section>
       <div className="h-[520px] overflow-hidden rounded-xl border bg-white"><LiveMap users={mapUsers} centerOn={center} /></div>

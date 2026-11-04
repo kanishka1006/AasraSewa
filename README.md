@@ -17,6 +17,8 @@ npm start
 
 `npm start` starts local MongoDB and MQTT, seeds the demo database, and launches the API, IoT ingestion, both web apps and the Python service. It checks readiness and login before printing the URLs. Keep this terminal open; **Ctrl+C stops the services started by the launcher**. No cloud database or API key is needed for the core demo.
 
+On Git Bash / macOS / Linux you can also run `./start-demo.sh` (starts the stack and, if `.env.esp32` exists, the ESP gateway). For a second laptop on the same hotspot, see [shared Wi‑Fi demo notes](documentation/SHARED_WIFI_DEMO.md).
+
 | Interface | URL |
 | --- | --- |
 | Main app | http://localhost:3002 |
@@ -42,6 +44,10 @@ The demo publishes explicitly labelled **simulator** readings to MQTT, verifies 
 For an automated start/test/stop cycle, run `npm run smoke` while no previous stack is running. `npm test` checks fresh configuration generation and preservation of existing credentials. GitHub Actions runs setup and the smoke test on Windows and Ubuntu; its result is visible in the Actions tab.
 
 ## Connect an ESP32
+
+For a sealed u-blox USB GPS connected to a Windows laptop, use the
+[USB GPS demo](documentation/USB_GPS_DEMO.md): `npm run gps -- --port COM4 --verify`.
+This reads actual GPS positions without reflashing; it does not read the SOS button or vitals.
 
 ```sh
 npm run gateway

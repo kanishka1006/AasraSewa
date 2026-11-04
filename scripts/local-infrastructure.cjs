@@ -9,29 +9,41 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const aedes = require('aedes')();
 
 async function main() {
-    const dbPath = path.join(runtime, 'mongodb-data');
-    fs.mkdirSync(dbPath, { recursive: true });
-    const mongo = await MongoMemoryServer.create({
-        binary: { version: '7.0.16' },
-        instance: { port: 27017, portGeneration: false, ip: '127.0.0.1', dbName: 'aasrasewa', dbPath, storageEngine: 'wiredTiger', args: ['--wiredTigerCacheSizeGB', '0.25'] },
-    });
-    console.log(`MongoDB ready: ${mongo.getUri('aasrasewa')}`);
+    const mqttOnly = process.argv.includes('--mqtt-only');
+    let mongo = null;
+    if (!mqttOnly) {
+        const dbPath = path.join(runtime, 'mongodb-data');
+        fs.mkdirSync(dbPath, { recursive: true });
+        mongo = await MongoMemoryServer.create({
+            binary: { version: '7.0.16' },
+            instance: { port: 27017, portGeneration: false, ip: '127.0.0.1', dbName: 'aasrasewa', dbPath, storageEngine: 'wiredTiger', args: ['--wiredTigerCacheSizeGB', '0.25'] },
+        });
+        console.log(`MongoDB ready: ${mongo.getUri('aasrasewa')}`);
+    } else {
+        console.log('MongoDB skipped: using external MONGODB_URI (Atlas or remote).');
+    }
     const mqtt = net.createServer(aedes.handle);
-    mqtt.on('error', async error => { console.error(error.message); await mongo.stop(); process.exit(1); });
+    mqtt.on('error', async error => {
+        console.error(error.message);
+        if (mongo) await mongo.stop();
+        process.exit(1);
+    });
     mqtt.listen(1883, '127.0.0.1', () => {
         console.log('MQTT ready: mqtt://127.0.0.1:1883');
         process.send?.({ type: 'ready' });
     });
     let stopping = false;
-    mongo.instanceInfo.instance.on('instanceClosed', () => {
-        if (!stopping) { console.error('MongoDB stopped unexpectedly. Restart the local stack.'); process.exit(1); }
-    });
+    if (mongo) {
+        mongo.instanceInfo.instance.on('instanceClosed', () => {
+            if (!stopping) { console.error('MongoDB stopped unexpectedly. Restart the local stack.'); process.exit(1); }
+        });
+    }
     const stop = async () => {
         if (stopping) return;
         stopping = true;
         mqtt.close();
         aedes.close();
-        await mongo.stop();
+        if (mongo) await mongo.stop();
         process.exit(0);
     };
     process.on('SIGINT', stop);

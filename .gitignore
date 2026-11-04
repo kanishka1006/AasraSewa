@@ -38,5 +38,9 @@ out/
 !.env.example
 !.env.esp32.example
 
-# ESP32 local Wi-Fi and broker credentials
+# ESP32 / User-band local Wi-Fi and broker credentials
 iot/esp32/config.h
+iot/user-band/config.h
+
+# Local Arduino CLI download (do not commit binaries)
+tools/
