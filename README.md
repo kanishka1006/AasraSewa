@@ -84,4 +84,20 @@ The running demo uses **MongoDB**, not the PostgreSQL/TimescaleDB architecture p
 - The ESP32 adapter publishes at QoS 0 and has no durable offline SOS queue. Physical delivery and concurrency guarantees require further development.
 - The gateway uses plain MQTT for a trusted local network. Deployment needs TLS, scoped device access, endpoint authorization and removal of demo credentials.
 
-See [the startup and troubleshooting guide](LOCAL-RUN.md), [workflow documentation](documentation/LOCAL_WORKFLOW.md), and [environment examples](backend/.env.example). Actual `.env` files, Wi-Fi settings, database files, logs and dependencies are excluded from Git.
+## Documentation
+
+| Doc | Use |
+| --- | --- |
+| [AI Day stall script](documentation/AI_DAY_STALL_SCRIPT.md) | Pitch + full speak-while-demo (hardware + software) |
+| [Shared Wi‑Fi demo](documentation/SHARED_WIFI_DEMO.md) | Teammates on Summar; host owns boxes |
+| [Stampede / AI workflow](WORKFLOW.md) | Admin → Gemini → rescue portal |
+| [USB GPS demo](documentation/USB_GPS_DEMO.md) | Laptop GPS without reflash |
+| [Local run / troubleshooting](LOCAL-RUN.md) | Setup issues |
+| [Local workflow](documentation/LOCAL_WORKFLOW.md) | Day-to-day commands |
+| [Architecture](documentation/ARCHITECTURE.md) | System overview |
+| [IoT design](documentation/IOT_DESIGN.md) / [ESP32 guide](iot/esp32/README.md) | Band + MQTT |
+| [API](documentation/API_DESIGN.md) · [DB](documentation/DATABASE_SCHEMA.md) · [Tech stack](documentation/TECH_STACK.md) | Design refs |
+| [AI risk strategy](documentation/AI_RISK_STRATEGY.md) | Vitals thresholds |
+| [Env examples](backend/.env.example) | Config templates |
+
+Actual `.env` files, Wi-Fi settings, database files, logs and dependencies are excluded from Git.

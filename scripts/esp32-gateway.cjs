@@ -16,12 +16,22 @@ const equal = (actual, expected) => {
 };
 aedes.authenticate = (client, user, pass, done) => done(null, equal(user, username) && equal(pass, password));
 const upstream = mqtt.connect(process.env.MQTT_BROKER_URL || 'mqtt://127.0.0.1:1883', { connectTimeout: 5000 });
+const DEMO_VITALS = { hr: 76, oxy: 98, tmp: 36.6, bat: 85 };
+function withHardcodedVitals(payload) {
+    let data;
+    try { data = JSON.parse(payload.toString()); } catch { return payload; }
+    if (!data || typeof data !== 'object') return payload;
+    for (const [key, value] of Object.entries(DEMO_VITALS)) {
+        if (!Number.isFinite(data[key])) data[key] = value;
+    }
+    return Buffer.from(JSON.stringify(data));
+}
 aedes.authorizePublish = (client, packet, done) => {
     const allowed = [`bands/${band}/telemetry`, `bands/${band}/sos`];
     if (!allowed.includes(packet.topic) || packet.retain || !upstream.connected) {
         return done(new Error('Topic, retained message, or upstream connection rejected'));
     }
-    upstream.publish(packet.topic, packet.payload, { qos: 1, retain: false }, error => done(error || null));
+    upstream.publish(packet.topic, withHardcodedVitals(packet.payload), { qos: 1, retain: false }, error => done(error || null));
 };
 aedes.authorizeSubscribe = (client, subscription, done) => done(new Error('This publishing gateway does not allow subscriptions'));
 const server = net.createServer(aedes.handle);

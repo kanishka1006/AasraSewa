@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from "framer-motion";
 import { Shield, Activity, Lock, ArrowLeft, Loader2 } from "lucide-react";
 import Image from "next/image";
+import { apiUrl } from "@/lib/api";
 
 // --- 3D Background Grid ---
 function RetroGrid() {
@@ -86,7 +87,7 @@ export default function LandingLoginPage() {
     setError("");
 
     try {
-      const res = await fetch("http://localhost:3001/auth/login", {
+      const res = await fetch(apiUrl("/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phoneNumber: phone, password }),

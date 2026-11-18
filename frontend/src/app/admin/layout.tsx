@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import { apiUrl } from "@/lib/api";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(true);
@@ -28,8 +29,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       Notification.requestPermission();
     }
 
-    const eventSourceAlerts = new EventSource(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/alerts/stream`);
-    const eventSourceSos = new EventSource(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/sos/stream`);
+    const eventSourceAlerts = new EventSource(apiUrl("/alerts/stream"));
+    const eventSourceSos = new EventSource(apiUrl("/sos/stream"));
 
     const handleMessage = (event: MessageEvent) => {
         try {

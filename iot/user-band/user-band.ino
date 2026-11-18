@@ -42,9 +42,9 @@ bool mqttEnsure() {
 bool publishReading(bool sos) {
   time_t ts = time(nullptr);
   if (!mqtt.connected() || ts < 1700000000) return false;
-  char payload[256];
+  char payload[320];
   snprintf(payload, sizeof(payload),
-           "{\"ts\":%lu,\"lat\":%.6f,\"lon\":%.6f,\"source\":\"esp32\",\"sos\":%s}",
+           "{\"ts\":%lu,\"lat\":%.6f,\"lon\":%.6f,\"hr\":76,\"oxy\":98,\"tmp\":36.6,\"bat\":85,\"source\":\"esp32\",\"sos\":%s}",
            (unsigned long)ts, (double)AASRA_DEMO_LAT, (double)AASRA_DEMO_LON,
            sos ? "true" : "false");
   char topic[80];

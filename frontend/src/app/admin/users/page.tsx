@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Search, Battery, Wifi, Shield, ShieldAlert, MoreVertical, Loader2 } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 
 type User = {
     _id?: string;
@@ -19,7 +20,7 @@ export default function UsersPage() {
     useEffect(() => {
         const fetchUsers = async () => {
             try {
-                const res = await fetch('http://localhost:3001/auth/users');
+                const res = await fetch(apiUrl("/auth/users"));
                 const data = await res.json();
                 setUsers(data);
             } catch (error) {

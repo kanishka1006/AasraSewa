@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import LiveMap from "@/components/Map";
 import type { MapUser } from "@/components/Map/LiveMap";
+import { apiUrl } from "@/lib/api";
 
 // Types matching backend/database
 interface SosAlert {
@@ -35,7 +36,7 @@ export default function RescueDashboard() {
   const fetchAlerts = async () => {
      try {
          // In real app, pass Authorization header
-         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/sos/active`);
+         const res = await fetch(apiUrl("/sos/active"));
          if (res.ok) {
              const data = await res.json();
              setAlerts(data);
@@ -69,7 +70,7 @@ export default function RescueDashboard() {
     const rescuerId = prompt("Enter Rescuer ID (UUID):");
     if (!rescuerId) return;
 
-    await fetch('http://localhost:3001/sos/assign', {
+    await fetch(apiUrl("/sos/assign"), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ alertId, rescuerId })
@@ -81,7 +82,7 @@ export default function RescueDashboard() {
       const notes = prompt("Resolution Notes:");
       if (!notes) return;
 
-      await fetch('http://localhost:3001/sos/status', {
+      await fetch(apiUrl("/sos/status"), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ alertId, status: 'RESOLVED', notes })

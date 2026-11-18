@@ -11,6 +11,7 @@ const RescueMap = dynamic(() => import("../components/RescueMap"), {
   loading: () => <div className="h-[300px] bg-slate-800 animate-pulse rounded-xl flex items-center justify-center text-slate-500">Loading Sat-Nav...</div>,
 });
 import DroneFeed from "../components/DroneFeed";
+import { apiUrl } from "@/lib/api";
 
 export default function RescueHome() {
   const [missions, setMissions] = useState([
@@ -24,7 +25,7 @@ export default function RescueHome() {
   useEffect(() => {
      const checkAlerts = async () => {
          try {
-             const res = await fetch('http://localhost:3001/alerts');
+             const res = await fetch(apiUrl("/alerts"));
              if (!res.ok) return;
              
              const alerts = await res.json();
@@ -300,7 +301,7 @@ export default function RescueHome() {
                                 
                                 // 2. Delete from Backend so it doesn't reappear
                                 try {
-                                    await fetch(`http://localhost:3001/alerts/${selectedMission.id}`, { method: 'DELETE' });
+                                    await fetch(apiUrl(`/alerts/${selectedMission.id}`), { method: 'DELETE' });
                                 } catch (e) {
                                     console.error("Failed to delete alert form backend", e);
                                 }

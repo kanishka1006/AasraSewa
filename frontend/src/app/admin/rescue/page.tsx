@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { CheckCircle, Clock, AlertTriangle, ArrowRight, X, MapPin, Thermometer, Users, HeartPulse, ShieldAlert, Bot } from "lucide-react";
 import dynamic from "next/dynamic";
+import { apiUrl } from "@/lib/api";
 
 // Reuse the LiveMap for the Heatmap visualization for now
 const LiveMap = dynamic(() => import("@/components/Map/LiveMap"), {
@@ -22,11 +23,52 @@ export default function RescuePage() {
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const missions = [
-    { id: "RES-101", type: "Medical", location: "Sector 4, Rohini", status: "In Progress", priority: "High", time: "2 mins ago", team: "Team Alpha" },
-    { id: "RES-098", type: "Fire", location: "Industrial Area, Okhla", status: "Dispatched", priority: "Critical", time: "15 mins ago", team: "Team Bravo" },
-    { id: "RES-095", type: "Flood", location: "Yamuna Bank", status: "Resolved", priority: "Medium", time: "2 hours ago", team: "Team Charlie" },
-  ];
+  const [missions, setMissions] = useState<any[]>([
+    { id: "RES-101", type: "Medical", location: "Sector 4, Rohini", status: "In Progress", priority: "High", time: "2 mins ago", team: "Team Alpha", details: "Medical evacuation request.", aiAnalysis: null },
+    { id: "RES-098", type: "Fire", location: "Industrial Area, Okhla", status: "Dispatched", priority: "Critical", time: "15 mins ago", team: "Team Bravo", details: "Warehouse fire reported.", aiAnalysis: null },
+    { id: "RES-095", type: "Flood", location: "Yamuna Bank", status: "Resolved", priority: "Medium", time: "2 hours ago", team: "Team Charlie", details: "Flood water rising.", aiAnalysis: null },
+  ]);
+  const [selectedMission, setSelectedMission] = useState<any | null>(null);
+
+  // Pull dispatched stampede alerts (with AI plan) from the API
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch(apiUrl("/alerts"));
+        if (!res.ok) return;
+        const alerts = await res.json();
+        if (!Array.isArray(alerts) || alerts.length === 0) return;
+        setMissions(prev => {
+          const ids = new Set(prev.map(m => m.id));
+          const incoming = alerts
+            .filter((a: any) => a?.id && !ids.has(a.id))
+            .map((a: any) => ({
+              id: a.id,
+              type: a.type || "Stampede",
+              location: a.location || "Unknown",
+              status: "Dispatched",
+              priority: a.priority || "Critical",
+              time: a.time || "Just now",
+              team: "Crowd Control",
+              details: a.details || "",
+              aiAnalysis: a.aiAnalysis || null,
+            }));
+          // Refresh AI plan on missions we already have
+          const refreshed = prev.map(m => {
+            const match = alerts.find((a: any) => a.id === m.id);
+            if (!match) return m;
+            return { ...m, details: match.details || m.details, aiAnalysis: match.aiAnalysis ?? m.aiAnalysis };
+          });
+          return incoming.length ? [...incoming, ...refreshed] : refreshed;
+        });
+      } catch (e) {
+        console.error("Failed to load alerts", e);
+      }
+    };
+    load();
+    const t = setInterval(load, 5000);
+    return () => clearInterval(t);
+  }, []);
 
   const handleCreateMission = (type: string) => {
       if (type === 'Stampede') {
@@ -62,12 +104,15 @@ export default function RescuePage() {
                   setMissionLocation(locationData);
                   setShowStampedeMap(true);
 
-                  // TRIGGER AI ANALYSIS
+                  // TRIGGER AI ANALYSIS (timeout so Dispatch is never stuck forever)
                   setIsAnalyzing(true);
+                  const aiAbort = new AbortController();
+                  const aiTimer = setTimeout(() => aiAbort.abort(), 25000);
                   try {
-                      const aiRes = await fetch('http://localhost:3001/gemini/analyze', {
+                      const aiRes = await fetch(apiUrl("/gemini/analyze"), {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
+                          signal: aiAbort.signal,
                           body: JSON.stringify({
                               type: 'Stampede / Crowd Control',
                               location: address,
@@ -75,12 +120,14 @@ export default function RescuePage() {
                               details: 'High density crowd detected. Potential for crush injuries. Urgent automated dispatch.'
                           }) 
                       });
+                      if (!aiRes.ok) throw new Error(`AI HTTP ${aiRes.status}`);
                       const aiData = await aiRes.json();
-                      setAiAnalysis(aiData.analysis);
+                      setAiAnalysis(aiData.analysis || "Proceed with standard crowd-control protocols.");
                   } catch (e) {
                       console.error("AI Error", e);
-                      setAiAnalysis("AI Connectivity Failed. Proceed with Standard Protocols.");
+                      setAiAnalysis("AI unavailable or timed out. Proceed with standard crowd-control protocols:\n1. Establish perimeter\n2. Open egress routes\n3. Triage crush injuries\n4. Set ICS command post");
                   } finally {
+                      clearTimeout(aiTimer);
                       setIsAnalyzing(false);
                   }
 
@@ -135,7 +182,7 @@ export default function RescuePage() {
 
       try {
           console.log("Payload:", payload);
-          const res = await fetch('http://localhost:3001/alerts', {
+          const res = await fetch(apiUrl("/alerts"), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload)
@@ -144,10 +191,22 @@ export default function RescuePage() {
           if (res.ok) {
               const responseData = await res.json();
               console.log("Server Response:", responseData);
-              alert(`🚨 Stampede Alert Dispatched for ${missionLocation?.address}!`);
+              setMissions(prev => [{
+                  id: payload.id,
+                  type: "Stampede",
+                  location: payload.location,
+                  status: "Dispatched",
+                  priority: "Critical",
+                  time: "Just now",
+                  team: "Crowd Control",
+                  details: payload.details,
+                  aiAnalysis: payload.aiAnalysis,
+              }, ...prev]);
               setIsModalOpen(false);
               setShowStampedeMap(false);
-              setAiAnalysis(null); // Reset
+              setAiAnalysis(null);
+              setHeatmapData([]);
+              alert(`Stampede alert dispatched.\n\nOpen Rescue Portal: http://localhost:3003\nOr click Details on this mission to see the AI plan.`);
           } else {
               const errText = await res.text();
               console.error("Server Error:", errText);
@@ -241,6 +300,7 @@ export default function RescuePage() {
                       ${m.type === 'Medical' ? 'bg-red-50 text-red-600' : ''}
                       ${m.type === 'Fire' ? 'bg-orange-50 text-orange-600' : ''}
                       ${m.type === 'Flood' ? 'bg-blue-50 text-blue-600' : ''}
+                      ${m.type === 'Stampede' ? 'bg-amber-50 text-amber-700' : ''}
                    `}>
                      {m.type}
                    </span>
@@ -258,7 +318,11 @@ export default function RescuePage() {
                    </div>
                 </td>
                 <td className="px-6 py-4">
-                  <button className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMission(m)}
+                    className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
+                  >
                     Details <ArrowRight className="w-4 h-4" />
                   </button>
                 </td>
@@ -267,6 +331,72 @@ export default function RescuePage() {
           </tbody>
         </table>
       </div>
+
+      {/* Mission Details + AI Plan */}
+      {selectedMission && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">Mission Details</h2>
+                <p className="text-sm text-slate-500 font-mono">{selectedMission.id}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedMission(null)}
+                className="p-2 hover:bg-slate-200 rounded-full text-slate-500"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><span className="text-slate-400">Type</span><p className="font-semibold text-slate-800">{selectedMission.type}</p></div>
+                <div><span className="text-slate-400">Status</span><p className="font-semibold text-slate-800">{selectedMission.status}</p></div>
+                <div className="col-span-2"><span className="text-slate-400">Location</span><p className="font-semibold text-slate-800">{selectedMission.location}</p></div>
+                <div><span className="text-slate-400">Team</span><p className="font-semibold text-slate-800">{selectedMission.team}</p></div>
+                <div><span className="text-slate-400">Priority</span><p className="font-semibold text-slate-800">{selectedMission.priority || "—"}</p></div>
+              </div>
+              {selectedMission.details && (
+                <div className="rounded-xl bg-slate-50 border border-slate-100 p-4">
+                  <p className="text-xs font-bold uppercase text-slate-400 mb-1">Situation</p>
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap">{selectedMission.details}</p>
+                </div>
+              )}
+              <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-4">
+                <div className="flex items-center gap-2 text-indigo-800 mb-2">
+                  <Bot className="w-4 h-4" />
+                  <p className="text-xs font-bold uppercase">AI Tactical Plan</p>
+                </div>
+                {selectedMission.aiAnalysis ? (
+                  <p className="text-sm text-indigo-900 whitespace-pre-wrap leading-relaxed">{selectedMission.aiAnalysis}</p>
+                ) : (
+                  <p className="text-sm text-indigo-600/80">
+                    No AI plan stored for this mission. Stampede missions show the plan after Dispatch (also on Rescue Portal :3003).
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="p-4 border-t flex justify-end gap-2 bg-white">
+              <a
+                href="http://localhost:3003"
+                target="_blank"
+                rel="noreferrer"
+                className="px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 rounded-lg"
+              >
+                Open Rescue Portal
+              </a>
+              <button
+                type="button"
+                onClick={() => setSelectedMission(null)}
+                className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* New Mission Modal */}
       {isModalOpen && (

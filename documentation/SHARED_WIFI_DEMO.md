@@ -1,16 +1,19 @@
-# Shared Wi‑Fi demo (second laptop)
+# Shared Wi‑Fi demo (teammate laptops)
 
-This is how a teammate runs the **same AI Day demo** on their laptop on **your hotspot** (e.g. Summar).
+Everyone joins **your Summar hotspot**, clones the repo on **their own laptop**, and runs the full stack locally. Each machine is independent — they do not open your browser URLs.
 
-## What is safe to share in Git
+## What you share (privately, not in Git)
 
-Committed code starts a **local** stack on each laptop. Each person runs `npm run setup` which creates **their own** ignored `.env` files (JWT, MQTT device password, etc.).
+| Share out of band | Do **not** commit |
+| --- | --- |
+| Summar SSID + password | Wi‑Fi password in `config.h` |
+| Optional: Atlas `MONGODB_URI` | Atlas password / Gemini key |
+| Optional: Gemini key for Stampede AI | `.env`, `.env.esp32`, real `config.h` |
 
-**Do not commit** real Wi‑Fi passwords, Atlas passwords, Gemini keys, or `config.h` / `.env.esp32`.
+## Teammate steps (software demo on their laptop)
 
-## Software demo (any laptop — recommended for teammates)
-
-Works even without the physical User box:
+1. Join **Summar**.
+2. Clone and start:
 
 ```sh
 git clone https://github.com/kanishka1006/AasraSewa.git
@@ -19,61 +22,48 @@ npm run setup
 npm start
 ```
 
-Second terminal:
+3. Second terminal:
 
 ```sh
 npm run doctor
 npm run demo
 ```
 
-Login: `+919999999999` / `password123`  
-IoT Monitor: http://localhost:3002/admin/iot  
-Rescue Ops → Stampede → http://localhost:3003
+4. On **their** machine:
 
-Optional Gemini: put `GEMINI_API_KEY` in **their** `backend/.env` (never commit it).
+| App | URL |
+| --- | --- |
+| Login | http://localhost:3002 — `+919999999999` / `password123` |
+| IoT Monitor | http://localhost:3002/admin/iot |
+| Rescue / Stampede | http://localhost:3003 |
 
-## Physical User band on *your* Summar hotspot
+`npm run setup` creates **their own** ignored `.env` files (JWT, local MQTT password, etc.).
 
-The band firmware contains:
+Optional Gemini: put `GEMINI_API_KEY` in **their** `backend/.env`.
 
-- Wi‑Fi SSID/password (Summar)
-- **One** gateway host = the laptop LAN IP that runs `npm run gateway`
+## Physical User band / boxes
 
-So only **one control-room laptop** should own the band at a time.
+Firmware is locked to **Summar** + **one** MQTT host IP (the laptop that runs `npm run gateway`).
 
-### Owner laptop (band gateway)
+| Role | What to do |
+| --- | --- |
+| **Host (you)** | Summar → `npm start` → `npm run gateway` → power the band. Live SOS on your IoT Monitor. |
+| **Teammates** | Software demo with `npm run demo` (simulated SOS). To own the real band: stop host gateway, put **their** Summar LAN IP in `iot/user-band/config.h`, reflash, then `npm run gateway` on their laptop. |
 
-1. Join Summar.
-2. Note LAN IP (`ipconfig` / `ip addr`), e.g. `10.32.16.39`.
-3. `npm start` then `npm run gateway` (or `./start-demo.sh`).
-4. Ensure `iot/user-band/config.h` and `.env.esp32` use that same IP (from `npm run setup` / manual copy of `config.example.h`).
-5. Flash `iot/user-band` once with that `config.h`.
+Only one gateway should own the band at a time.
 
-### Teammate laptop on the same Summar
+## Optional: same Atlas users on every laptop
 
-They can still run the **full software UI demo** (`npm start` + `npm run demo` + Stampede).
+1. Same `MONGODB_URI` in each person’s local `backend/.env` and `iot/.env`.
+2. Seed once from `backend/` after build.
+3. Atlas Network Access allows their IPs (or temporary `0.0.0.0/0` for the event day).
 
-They **cannot** both receive the same ESP with different IPs unless you:
-
-- reflash the ESP with **their** LAN IP, and  
-- stop the owner’s gateway,
-
-or they only watch the owner’s screen for hardware.
-
-## Atlas MongoDB (optional shared cloud DB)
-
-If you want every laptop to share the **same** seeded users in Atlas:
-
-1. Each person sets the same `MONGODB_URI` in **local** `backend/.env` and `iot/.env` (gitignored).
-2. Run seed once: `node dist/database/scripts/run-seed.js` from `backend/` after build.
-3. Allow each laptop IP in Atlas Network Access (or temporarily `0.0.0.0/0` for the event day only).
-
-Default `npm start` still works with **local** Mongo without Atlas.
+Without Atlas, each laptop uses its own local Mongo from `npm start`.
 
 ## Quick rule
 
 | Goal | What teammates do |
 | --- | --- |
-| Login + IoT SOS + Stampede portal | Clone → setup → start → demo |
-| See **your** physical band | Look at **your** IoT Monitor (or reflash band to their IP) |
-| Shared cloud users | Same Atlas URI in private `.env` + Network Access |
+| Full UI + simulated SOS + Stampede | Join Summar → clone → setup → start → demo |
+| See the **physical** band | Watch host screen, or reflash band to their IP + their gateway |
+| Shared cloud users | Same Atlas URI in private `.env` |

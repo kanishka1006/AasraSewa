@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, X } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 
 export default function Notifications() {
   const [notification, setNotification] = useState<{title: string, message: string} | null>(null);
@@ -12,8 +13,8 @@ export default function Notifications() {
       Notification.requestPermission();
     }
 
-    const eventSourceAlerts = new EventSource(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/alerts/stream`);
-    const eventSourceSos = new EventSource(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/sos/stream`);
+    const eventSourceAlerts = new EventSource(apiUrl("/alerts/stream"));
+    const eventSourceSos = new EventSource(apiUrl("/sos/stream"));
 
     const handleMessage = (event: MessageEvent) => {
         try {

@@ -4,8 +4,9 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { apiBase } from "@/lib/api";
+
 const LiveMap = dynamic(() => import("@/components/Map/LiveMap"), { ssr: false });
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 type Reading = {
   userId: string; userName: string; bandId: string;
@@ -35,7 +36,7 @@ export default function IotMonitor() {
       try {
         const options = { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal };
         const [locations, emergencies] = await Promise.all([
-          fetch(`${API}/location/latest`, options), fetch(`${API}/sos/active`, options)
+          fetch(`${apiBase()}/location/latest`, options), fetch(`${apiBase()}/sos/active`, options)
         ]);
         if (locations.status === 401 || emergencies.status === 401) throw new Error("Session expired. Sign in again.");
         if (!locations.ok || !emergencies.ok) throw new Error("Unable to refresh device data.");
@@ -58,7 +59,7 @@ export default function IotMonitor() {
 
   const resolveAlert = async (id: string) => {
     try {
-      const response = await fetch(`${API}/sos/status`, {
+      const response = await fetch(`${apiBase()}/sos/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` },
         body: JSON.stringify({ alertId: id, status: "RESOLVED", notes: "Resolved from IoT monitor" })

@@ -3,21 +3,59 @@
 import { useState } from "react";
 import { CloudRain, Sun, Wind, Thermometer, Droplets, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { apiUrl } from "@/lib/api";
+
+/** Demo places with fixed coords (Open-Meteo geocoder often misses Indian place names). */
+const KNOWN_LOCATIONS: { label: string; latitude: number; longitude: number; name: string; country: string }[] = [
+    // Same Katra pin as User band demo (Vaishno Devi Bhawan area)
+    { label: "Katra, Vaishno Devi", latitude: 33.0297, longitude: 74.9486, name: "Katra (Vaishno Devi)", country: "India" },
+    { label: "Katra, Jammu", latitude: 32.99167, longitude: 74.93195, name: "Katra", country: "India" },
+    { label: "Sector 4, Rohini", latitude: 28.7495, longitude: 77.0565, name: "Rohini Sector 4", country: "India" },
+    { label: "Jammu City", latitude: 32.7266, longitude: 74.857, name: "Jammu", country: "India" },
+];
+
+function resolvePlace(location: string) {
+    const q = location.trim().toLowerCase();
+    if (!q) return null;
+    if (q.includes("vaishno") || q === "katra" || q.startsWith("katra,")) return KNOWN_LOCATIONS[0];
+    const exact = KNOWN_LOCATIONS.find(p => p.label.toLowerCase() === q);
+    if (exact) return exact;
+    if (q.includes("rohini")) return KNOWN_LOCATIONS[2];
+    if (q.includes("jammu")) return KNOWN_LOCATIONS[3];
+    return null;
+}
 
 // Real Weather Service using OpenMeteo (Free, No Key Required)
 const fetchWeatherPrediction = async (location: string) => {
     try {
-        // 1. Geocoding: Get Lat/Lon for location
-        const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=en&format=json`);
-        const geoData = await geoRes.json();
+        let latitude: number;
+        let longitude: number;
+        let name: string;
+        let country: string;
 
-        if (!geoData.results || geoData.results.length === 0) {
-             throw new Error("Location not found");
+        const pinned = resolvePlace(location);
+        if (pinned) {
+            ({ latitude, longitude, name, country } = pinned);
+        } else {
+            // Geocoding: prefer India when searching free text
+            const geoRes = await fetch(
+                `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=5&language=en&format=json&countryCode=IN`
+            );
+            const geoData = await geoRes.json();
+            if (!geoData.results || geoData.results.length === 0) {
+                throw new Error("Location not found");
+            }
+            // Prefer Jammu & Kashmir hit when query mentions Katra
+            const pick = location.toLowerCase().includes("katra")
+                ? (geoData.results.find((r: any) => /jammu|kashmir|reasi/i.test(`${r.admin1 || ""} ${r.name || ""}`)) || geoData.results[0])
+                : geoData.results[0];
+            latitude = pick.latitude;
+            longitude = pick.longitude;
+            name = pick.name;
+            country = pick.country || "India";
         }
 
-        const { latitude, longitude, name, country } = geoData.results[0];
-
-        // 2. Weather: Get Forecast
+        // Weather forecast for resolved coordinates
         const weatherRes = await fetch(
             `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,rain,wind_speed_10m&hourly=temperature_2m,rain,weather_code&forecast_days=1`
         );
@@ -25,7 +63,6 @@ const fetchWeatherPrediction = async (location: string) => {
         
         const current = weatherData.current;
         const currentTemp = Math.round(current.temperature_2m);
-        const isRaining = current.rain > 0;
         
         // Helper to interpret WMO codes
         const getWeatherCondition = (code: number) => {
@@ -40,22 +77,19 @@ const fetchWeatherPrediction = async (location: string) => {
         const condition = getWeatherCondition(weatherData.hourly.weather_code[0]);
         const riskLevel = (current.rain > 5 || current.wind_speed_10m > 50) ? "HIGH" : "LOW";
 
-        // Generate Resume
         const summary = riskLevel === 'HIGH' 
             ? `Alert: Adverse conditions detected in ${name}. High wind/rain may impact rescue protocols.`
             : `Conditions in ${name}, ${country} are stable. Optimal for drone and ground team deployment.`;
 
-        // 3. Format Response
         return {
             current: {
                 temp: currentTemp,
                 condition: condition,
                 humidity: current.relative_humidity_2m,
-                wind: current.wind_speed_10m
+                wind: Math.round(current.wind_speed_10m * 10) / 10
             },
             forecast: [0, 1, 2, 3, 4].map(offset => {
                 const hourIndex = new Date().getHours() + offset;
-                 // Loop if end of day (simple hack for demo)
                 const safeIndex = hourIndex % 24; 
                 
                 const rain = weatherData.hourly.rain[safeIndex];
@@ -68,17 +102,17 @@ const fetchWeatherPrediction = async (location: string) => {
                 return {
                     time: offset === 0 ? "Now" : `+${offset}hr`,
                     temp: Math.round(weatherData.hourly.temperature_2m[safeIndex]),
-                    rainChance: Math.min(rain * 10, 100), // Approx conversion
+                    rainChance: Math.min(rain * 10, 100),
                     alert: alert
                 };
             }),
             riskLevel: riskLevel,
-            summary: summary
+            summary: summary,
+            place: { name, latitude, longitude }
         };
 
     } catch (error) {
         console.error("Weather API Error:", error);
-         // Fallback to Mock if API fails (e.g. rate limit or bad location)
          return {
             current: { temp: 22, condition: "Unknown", humidity: 50, wind: 10 },
             forecast: [],
@@ -89,13 +123,14 @@ const fetchWeatherPrediction = async (location: string) => {
 };
 
 export default function WeatherPage() {
-  const [location, setLocation] = useState("Sector 4, Rohini");
+  const [location, setLocation] = useState("Katra, Vaishno Devi");
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
 
-  const handlePredict = async () => {
+  const handlePredict = async (place = location) => {
+      setLocation(place);
       setLoading(true);
-      const result = await fetchWeatherPrediction(location);
+      const result = await fetchWeatherPrediction(place);
       setData(result);
       setLoading(false);
   };
@@ -108,16 +143,35 @@ export default function WeatherPage() {
           <p className="text-slate-500 mt-1">Real-time localized forecasting for mission planning</p>
         </div>
         
+        <div className="flex flex-col gap-2 w-full md:w-auto">
+        <div className="flex flex-wrap gap-2">
+            {KNOWN_LOCATIONS.map(place => (
+                <button
+                    key={place.label}
+                    type="button"
+                    onClick={() => handlePredict(place.label)}
+                    disabled={loading}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                        location === place.label
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-blue-300"
+                    }`}
+                >
+                    {place.label}
+                </button>
+            ))}
+        </div>
         <div className="flex bg-white shadow-md hover:shadow-lg transition-shadow p-1.5 rounded-xl border border-slate-200 w-full md:w-auto">
             <input 
                 type="text" 
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handlePredict(); }}
                 className="px-4 py-3 outline-none bg-transparent w-full md:w-80 text-lg text-slate-700 placeholder:text-slate-400"
-                placeholder="Enter Sector or Coordinates..."
+                placeholder="Katra, Vaishno Devi..."
             />
             <button 
-                onClick={handlePredict}
+                onClick={() => handlePredict()}
                 disabled={loading}
                 className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors flex items-center gap-2 whitespace-nowrap disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-blue-500/30"
             >
@@ -157,6 +211,7 @@ export default function WeatherPage() {
                 <CloudRain className="w-5 h-5 text-slate-500" /> Test Alert
             </button>
         </div>
+        </div>
       </div>
 
       <AnimatePresence mode="wait">
@@ -167,7 +222,7 @@ export default function WeatherPage() {
             >
                  <CloudRain className="w-16 h-16 mb-4 opacity-30" />
                  <p className="text-lg font-medium">Enter a location above to generate a micro-weather forecast</p>
-                 <p className="text-sm opacity-60">Try "Sector 4", "Yamuna Bank", or "Connaught Place"</p>
+                 <p className="text-sm opacity-60">Try &quot;Katra, Vaishno Devi&quot; or tap a place chip above</p>
              </motion.div>
         )}
 
@@ -225,7 +280,7 @@ export default function WeatherPage() {
                                         };
                                         
                                         try {
-                                             await fetch('http://localhost:3001/alerts', {
+                                             await fetch(apiUrl("/alerts"), {
                                                  method: 'POST',
                                                  headers: { 'Content-Type': 'application/json' },
                                                  body: JSON.stringify(alertObj)
