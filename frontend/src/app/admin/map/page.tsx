@@ -12,11 +12,14 @@ const LiveMap = dynamic(() => import("@/components/Map/LiveMap"), {
 
 export default function MapPage() {
     // Initial Dummy Data
+    const now = new Date().toISOString();
     const initialData = [
-         { id: '1', name: 'User A', lat: 28.61, lon: 77.21, sos: false, role: 'CITIZEN', lastUpdate: new Date().toISOString() },
-         { id: '2', name: 'User B', lat: 28.62, lon: 77.22, sos: true, role: 'CITIZEN', lastUpdate: new Date().toISOString() },
-         { id: '3', name: 'Shelter 1', lat: 28.63, lon: 77.23, sos: false, role: 'SHELTER', lastUpdate: new Date().toISOString() },
-         { id: '4', name: 'Rescue Team', lat: 28.615, lon: 77.215, sos: false, role: 'ADMIN', lastUpdate: new Date().toISOString() },
+         { id: 'vd-1', name: 'Anjali Sharma', lat: 32.9917, lon: 74.9319, sos: false, role: 'CITIZEN', placeName: 'Katra, Vaishno Devi', lastUpdate: now },
+         { id: 'vd-3', name: 'Meera Devi', lat: 33.0165, lon: 74.9560, sos: true, role: 'CITIZEN', placeName: 'Adhkuwari, Vaishno Devi', lastUpdate: now },
+         { id: 'vd-5', name: 'Kavita Joshi', lat: 33.0297, lon: 74.9486, sos: false, role: 'CITIZEN', placeName: 'Bhawan, Vaishno Devi', lastUpdate: now },
+         { id: 'am-1', name: 'Imran Bhat', lat: 34.0161, lon: 75.3150, sos: false, role: 'CITIZEN', placeName: 'Pahalgam, Amarnath Yatra', lastUpdate: now },
+         { id: 'am-3', name: 'Tashi Dorje', lat: 34.0915, lon: 75.4965, sos: true, role: 'CITIZEN', placeName: 'Sheshnag, Amarnath Yatra', lastUpdate: now },
+         { id: 'am-6', name: 'Vikram Singh', lat: 34.2572, lon: 75.4128, sos: false, role: 'VOLUNTEER', placeName: 'Baltal, Amarnath Yatra', lastUpdate: now },
     ];
 
     const [mapData, setMapData] = useState<any[]>(initialData);
@@ -40,7 +43,7 @@ export default function MapPage() {
 
                     const myUser = {
                         id: 'ME-001',
-                        name: 'Praguni Sanotra',
+                        name: 'Kanishka',
                         lat: latitude,
                         lon: longitude,
                         sos: false,
@@ -95,7 +98,7 @@ export default function MapPage() {
                 onClick={handleLocateMe}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium shadow-lg shadow-blue-200 transition-all"
             >
-                <Crosshair className="w-4 h-4 animate-spin-slow" /> Find Me (Praguni)
+                <Crosshair className="w-4 h-4 animate-spin-slow" /> Find Me (Kanishka)
             </button>
 
             <button className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-medium text-slate-700">

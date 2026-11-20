@@ -1,6 +1,6 @@
 "use client";
 
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, CircleMarker, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-defaulticon-compatibility";
 import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
@@ -16,10 +16,22 @@ export interface MapUser {
   sos: boolean;
   role: 'CITIZEN' | 'VOLUNTEER' | 'ADMIN';
   lastUpdate: string;
+  placeName?: string;
 }
 
 interface LiveMapProps {
   users?: MapUser[]; // Pass initial data or let it fetch
+}
+
+function FitUsers({ points }: { points: [number, number][] }) {
+  const map = useMap();
+  const key = points.map((point) => point.join(",")).join("|");
+  useEffect(() => {
+    if (points.length === 0) return;
+    map.invalidateSize();
+    map.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 14, animate: false });
+  }, [key, map]);
+  return null;
 }
 
 export default function LiveMap({ users = [] }: LiveMapProps) {
@@ -44,7 +56,7 @@ export default function LiveMap({ users = [] }: LiveMapProps) {
   });
 
   return (
-    <div className="relative w-full h-full min-h-[500px] rounded-lg overflow-hidden border border-gray-200 shadow-lg">
+    <div className="relative w-full h-full rounded-lg overflow-hidden border border-gray-200 shadow-lg">
       
       {/* Filters Overlay */}
       <div className="absolute top-4 right-4 z-[1000] bg-white p-4 rounded-md shadow-md flex flex-col gap-2 w-48">
@@ -86,8 +98,9 @@ export default function LiveMap({ users = [] }: LiveMapProps) {
         center={[28.6139, 77.2090]} // Default: New Delhi
         zoom={13} 
         scrollWheelZoom={true} 
-        className="w-full h-full min-h-[500px]"
+        className="w-full h-full"
       >
+        <FitUsers points={filteredUsers.map((user) => [user.lat, user.lon])} />
         <TileLayer
           attribution='&copy; <a href="https://www.flsm.dev">AasraSewa</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -103,6 +116,7 @@ export default function LiveMap({ users = [] }: LiveMapProps) {
               <div className="p-1">
                 <h4 className="font-bold">{user.name} <span className="text-xs text-gray-500">({user.role})</span></h4>
                 {user.sos && <div className="text-red-600 font-bold animate-pulse mt-1">🚨 SOS ACTIVE</div>}
+                {user.placeName && <p className="text-xs font-semibold text-slate-700 mt-1">{user.placeName}</p>}
                 <p className="text-xs text-gray-600 mt-1">Lat: {user.lat.toFixed(4)}, Lon: {user.lon.toFixed(4)}</p>
                 <p className="text-xs text-gray-400">Updated: {new Date(user.lastUpdate).toLocaleTimeString()}</p>
                 <button className="mt-2 w-full bg-blue-600 text-white text-xs py-1 px-2 rounded hover:bg-blue-700">

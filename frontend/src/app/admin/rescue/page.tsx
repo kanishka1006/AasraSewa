@@ -11,10 +11,101 @@ const LiveMap = dynamic(() => import("@/components/Map/LiveMap"), {
   loading: () => <div className="h-64 bg-slate-100 animate-pulse rounded-xl"></div>,
 });
 
+type MissionKind = "Health" | "Stampede" | "Weather";
+
+const YATRA_SITES: Record<MissionKind, { lat: number; lon: number; address: string }> = {
+  Health: { lat: 33.0165, lon: 74.956, address: "Adhkuwari, Vaishno Devi" },
+  Stampede: { lat: 33.0297, lon: 74.9486, address: "Bhawan, Vaishno Devi" },
+  Weather: { lat: 34.0915, lon: 75.4965, address: "Sheshnag, Amarnath Yatra" },
+};
+
+const MISSION_COPY: Record<MissionKind, {
+  title: string;
+  team: string;
+  priority: string;
+  aiType: string;
+  situation: (address: string) => string;
+  fallback: string;
+  dispatch: string;
+}> = {
+  Health: {
+    title: "Health Emergency",
+    team: "Medical Response",
+    priority: "CRITICAL",
+    aiType: "Health Emergency",
+    situation: (address) => `Pilgrim medical emergency at ${address}. Immediate first aid and evacuation required.`,
+    fallback: "1. Reach the patient and check airway, breathing, and circulation\n2. Give oxygen and treat altitude or cardiac distress\n3. Evacuate to the nearest medical post\n4. Keep a clear corridor for the stretcher team",
+    dispatch: "Dispatch Medical Team",
+  },
+  Stampede: {
+    title: "Stampede",
+    team: "Crowd Control",
+    priority: "CRITICAL",
+    aiType: "Stampede / Crowd Control",
+    situation: (address) => `High crowd density detected at ${address}. Potential stampede risk. Immediate crowd control required.`,
+    fallback: "1. Establish a perimeter\n2. Open egress routes\n3. Triage crush injuries\n4. Set an incident command post",
+    dispatch: "Dispatch Crowd Control",
+  },
+  Weather: {
+    title: "Weather Alert",
+    team: "Weather Response",
+    priority: "CRITICAL",
+    aiType: "Severe Weather",
+    situation: (address) => `Severe weather on the yatra route at ${address}. Pilgrims need shelter and the track may need to close.`,
+    fallback: "1. Halt movement on the exposed track\n2. Move pilgrims into the nearest shelter\n3. Watch wind, rain, and landslide risk\n4. Keep a medical team on standby",
+    dispatch: "Dispatch Weather Team",
+  },
+};
+
+function crowdAround(lat: number, lon: number) {
+  return Array.from({ length: 50 }, (_, i) => ({
+    id: `CROWD-${i}`,
+    name: "Detected Person",
+    lat: lat + (Math.random() - 0.5) * 0.005,
+    lon: lon + (Math.random() - 0.5) * 0.005,
+    sos: Math.random() > 0.8,
+    role: "CITIZEN" as const,
+    lastUpdate: new Date().toISOString(),
+  }));
+}
+
+async function resolveLocation(kind: MissionKind) {
+  const fallback = YATRA_SITES[kind];
+  if (typeof navigator === "undefined" || !navigator.geolocation) return fallback;
+  const position = await new Promise<GeolocationPosition | null>((resolve) => {
+    let settled = false;
+    const finish = (value: GeolocationPosition | null) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    const timer = setTimeout(() => finish(null), 4000);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { clearTimeout(timer); finish(pos); },
+      () => { clearTimeout(timer); finish(null); },
+      { enableHighAccuracy: false, timeout: 3500, maximumAge: 120000 },
+    );
+  });
+  if (!position) return fallback;
+  const lat = position.coords.latitude;
+  const lon = position.coords.longitude;
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+    const data = await res.json();
+    const address = data.display_name
+      ? data.display_name.split(",").slice(0, 3).join(",")
+      : `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    return { lat, lon, address };
+  } catch {
+    return { lat, lon, address: `${lat.toFixed(4)}, ${lon.toFixed(4)}` };
+  }
+}
+
 export default function RescuePage() {
   const [activeTab, setActiveTab] = useState("active");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showStampedeMap, setShowStampedeMap] = useState(false);
+  const [draftType, setDraftType] = useState<MissionKind | null>(null);
   const [heatmapData, setHeatmapData] = useState<any[]>([]);
   
   const [missionLocation, setMissionLocation] = useState<{lat: number, lon: number, address: string} | null>(null);
@@ -70,151 +161,120 @@ export default function RescuePage() {
     return () => clearInterval(t);
   }, []);
 
-  const handleCreateMission = (type: string) => {
-      if (type === 'Stampede') {
-          // Trigger "Near Me" Heatmap Logic
-          if (navigator.geolocation) {
-              navigator.geolocation.getCurrentPosition(async (pos) => {
-                  const { latitude, longitude } = pos.coords;
-                  
-                  // Generate visual crowd
-                  generateCrowdData(latitude, longitude);
+  const handleCreateMission = async (type: MissionKind) => {
+      const copy = MISSION_COPY[type];
+      setDraftType(type);
+      setShowStampedeMap(true);
+      setAiAnalysis(null);
+      setIsAnalyzing(true);
 
-                  // Fetch Address
-                  let address = "Unknown Location";
-                  let weatherInfo = "Unknown Weather";
-                  
-                  try {
-                       const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-                       const data = await res.json();
-                       address = data.display_name ? data.display_name.split(',').slice(0, 3).join(',') : `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-                       
-                       // Fetch Weather
-                       const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
-                       const weatherData = await weatherRes.json();
-                       const t = weatherData.current_weather?.temperature;
-                       const w = weatherData.current_weather?.windspeed;
-                       weatherInfo = `${t}°C, Wind ${w}km/h`;
-                  } catch (e) {
-                      address = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-                      console.error("Fetch Error", e);
-                  }
+      const site = await resolveLocation(type);
+      setMissionLocation(site);
+      const points = type === "Stampede"
+        ? crowdAround(site.lat, site.lon)
+        : [{
+            id: `${type}-PIN`,
+            name: copy.title,
+            lat: site.lat,
+            lon: site.lon,
+            sos: type === "Health",
+            role: "CITIZEN" as const,
+            placeName: site.address,
+            lastUpdate: new Date().toISOString(),
+          }];
+      setHeatmapData(points);
 
-                  const locationData = { lat: latitude, lon: longitude, address: address };
-                  setMissionLocation(locationData);
-                  setShowStampedeMap(true);
-
-                  // TRIGGER AI ANALYSIS (timeout so Dispatch is never stuck forever)
-                  setIsAnalyzing(true);
-                  const aiAbort = new AbortController();
-                  const aiTimer = setTimeout(() => aiAbort.abort(), 25000);
-                  try {
-                      const aiRes = await fetch(apiUrl("/gemini/analyze"), {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          signal: aiAbort.signal,
-                          body: JSON.stringify({
-                              type: 'Stampede / Crowd Control',
-                              location: address,
-                              weather: weatherInfo,
-                              details: 'High density crowd detected. Potential for crush injuries. Urgent automated dispatch.'
-                          }) 
-                      });
-                      if (!aiRes.ok) throw new Error(`AI HTTP ${aiRes.status}`);
-                      const aiData = await aiRes.json();
-                      setAiAnalysis(aiData.analysis || "Proceed with standard crowd-control protocols.");
-                  } catch (e) {
-                      console.error("AI Error", e);
-                      setAiAnalysis("AI unavailable or timed out. Proceed with standard crowd-control protocols:\n1. Establish perimeter\n2. Open egress routes\n3. Triage crush injuries\n4. Set ICS command post");
-                  } finally {
-                      clearTimeout(aiTimer);
-                      setIsAnalyzing(false);
-                  }
-
-              }, (err) => {
-                  console.error("Geo Error", err);
-                  alert("Could not detect location. Please allow permissions.");
-              });
-          } else {
-              alert("Location needed for Heatmap");
-          }
-      } else {
-          alert(`Created ${type} Alert (Simulation)`);
-          setIsModalOpen(false);
+      let weatherInfo = "Unknown Weather";
+      try {
+          const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${site.lat}&longitude=${site.lon}&current_weather=true`);
+          const weatherData = await weatherRes.json();
+          const temperature = weatherData.current_weather?.temperature;
+          const wind = weatherData.current_weather?.windspeed;
+          if (Number.isFinite(temperature)) weatherInfo = `${temperature}°C, Wind ${wind}km/h`;
+      } catch (error) {
+          console.error("Weather lookup failed", error);
       }
-  };
 
-  const generateCrowdData = (lat: number, lon: number) => {
-      // Generate 50 mock users around the center to simulate a crowd
-      const crowd = [];
-      for(let i=0; i<50; i++) {
-          crowd.push({
-              id: `CROWD-${i}`,
-              name: 'Detected Person',
-              lat: lat + (Math.random() - 0.5) * 0.005, // Tight cluster
-              lon: lon + (Math.random() - 0.5) * 0.005,
-              sos: Math.random() > 0.8, // 20% panic rate
-              role: 'CITIZEN',
-              lastUpdate: new Date().toISOString()
+      const aiAbort = new AbortController();
+      const aiTimer = setTimeout(() => aiAbort.abort(), 12000);
+      try {
+          const aiRes = await fetch(apiUrl("/gemini/analyze"), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              signal: aiAbort.signal,
+              body: JSON.stringify({
+                  type: copy.aiType,
+                  location: site.address,
+                  weather: weatherInfo,
+                  details: copy.situation(site.address),
+              }),
           });
+          if (!aiRes.ok) throw new Error(`AI HTTP ${aiRes.status}`);
+          const aiData = await aiRes.json();
+          setAiAnalysis(aiData.analysis || copy.fallback);
+      } catch (error) {
+          console.error("AI Error", error);
+          setAiAnalysis(copy.fallback);
+      } finally {
+          clearTimeout(aiTimer);
+          setIsAnalyzing(false);
       }
-      setHeatmapData(crowd);
   };
 
-  const dispatchStampedeAlert = async () => {
-      console.log("Dispatching Alert...", heatmapData.length);
-      
-      if (heatmapData.length === 0) {
-          alert("Error: No crowd data to dispatch. Simulation may have failed.");
-          return;
-      }
-
+  const dispatchMission = async () => {
+      if (!draftType || !missionLocation) return;
+      const copy = MISSION_COPY[draftType];
+      const points = heatmapData.length > 0 ? heatmapData : [{
+          id: `${draftType}-PIN`,
+          name: copy.title,
+          lat: missionLocation.lat,
+          lon: missionLocation.lon,
+          sos: draftType === "Health",
+          role: "CITIZEN",
+          placeName: missionLocation.address,
+          lastUpdate: new Date().toISOString(),
+      }];
       const payload = {
-          id: `RES-STAMP-${Date.now()}`,
-          type: 'Stampede',
-          priority: 'CRITICAL',
-          location: missionLocation?.address || 'Live Location (Crowd Detected)',
-          time: 'Just Now',
-          details: `High crowd density detected at ${missionLocation?.address || 'Unknown'}. Potential stampede risk. Immediate crowd control required.`,
-          heatmapData: heatmapData,
-          aiAnalysis: aiAnalysis // Send AI plan to rescue teams
+          id: `RES-${draftType.slice(0, 3).toUpperCase()}-${Date.now()}`,
+          type: copy.title,
+          priority: copy.priority,
+          location: missionLocation.address,
+          time: "Just Now",
+          details: copy.situation(missionLocation.address),
+          heatmapData: points,
+          aiAnalysis,
       };
 
       try {
-          console.log("Payload:", payload);
           const res = await fetch(apiUrl("/alerts"), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
           });
-          
-          if (res.ok) {
-              const responseData = await res.json();
-              console.log("Server Response:", responseData);
-              setMissions(prev => [{
-                  id: payload.id,
-                  type: "Stampede",
-                  location: payload.location,
-                  status: "Dispatched",
-                  priority: "Critical",
-                  time: "Just now",
-                  team: "Crowd Control",
-                  details: payload.details,
-                  aiAnalysis: payload.aiAnalysis,
-              }, ...prev]);
-              setIsModalOpen(false);
-              setShowStampedeMap(false);
-              setAiAnalysis(null);
-              setHeatmapData([]);
-              alert(`Stampede alert dispatched.\n\nOpen Rescue Portal: http://localhost:3003\nOr click Details on this mission to see the AI plan.`);
-          } else {
-              const errText = await res.text();
-              console.error("Server Error:", errText);
+          if (!res.ok) {
               alert(`Failed to dispatch alert. Server responded: ${res.status} ${res.statusText}`);
+              return;
           }
+          setMissions(prev => [{
+              id: payload.id,
+              type: copy.title,
+              location: payload.location,
+              status: "Dispatched",
+              priority: "Critical",
+              time: "Just now",
+              team: copy.team,
+              details: payload.details,
+              aiAnalysis: payload.aiAnalysis,
+          }, ...prev]);
+          setIsModalOpen(false);
+          setShowStampedeMap(false);
+          setDraftType(null);
+          setAiAnalysis(null);
+          setHeatmapData([]);
+          alert(`${copy.title} dispatched to the Rescue Portal at http://localhost:3003`);
       } catch (error) {
           console.error("Dispatch Error", error);
-          alert(`Network Error: Could not dispatch. check console for details.`);
+          alert("Network error: the mission could not reach the rescue portal.");
       }
   };
 
@@ -297,9 +357,9 @@ export default function RescuePage() {
                 <td className="px-6 py-4 font-semibold text-slate-800">{m.id}</td>
                 <td className="px-6 py-4">
                    <span className={`px-2 py-1 rounded text-xs font-semibold
-                      ${m.type === 'Medical' ? 'bg-red-50 text-red-600' : ''}
+                      ${m.type === 'Medical' || m.type === 'Health Emergency' ? 'bg-red-50 text-red-600' : ''}
                       ${m.type === 'Fire' ? 'bg-orange-50 text-orange-600' : ''}
-                      ${m.type === 'Flood' ? 'bg-blue-50 text-blue-600' : ''}
+                      ${m.type === 'Flood' || m.type === 'Weather Alert' ? 'bg-blue-50 text-blue-600' : ''}
                       ${m.type === 'Stampede' ? 'bg-amber-50 text-amber-700' : ''}
                    `}>
                      {m.type}
@@ -404,7 +464,7 @@ export default function RescuePage() {
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
                   <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                       <h2 className="text-xl font-bold text-slate-800">Create New Mission</h2>
-                      <button onClick={() => { setIsModalOpen(false); setShowStampedeMap(false); }} className="p-2 hover:bg-slate-200 rounded-full text-slate-500">
+                      <button onClick={() => { setIsModalOpen(false); setShowStampedeMap(false); setDraftType(null); }} className="p-2 hover:bg-slate-200 rounded-full text-slate-500">
                           <X className="w-5 h-5" />
                       </button>
                   </div>
@@ -416,7 +476,7 @@ export default function RescuePage() {
                             
                             {/* Health Emergency */}
                             <button 
-                                onClick={() => handleCreateMission('Health')}
+                                onClick={() => handleCreateMission("Health")}
                                 className="flex flex-col items-center gap-4 p-6 rounded-xl border-2 border-slate-100 hover:border-red-100 hover:bg-red-50 transition-all group"
                             >
                                 <div className="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -427,7 +487,7 @@ export default function RescuePage() {
 
                             {/* Stampede */}
                             <button 
-                                onClick={() => handleCreateMission('Stampede')}
+                                onClick={() => handleCreateMission("Stampede")}
                                 className="flex flex-col items-center gap-4 p-6 rounded-xl border-2 border-slate-100 hover:border-amber-100 hover:bg-amber-50 transition-all group"
                             >
                                 <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -438,7 +498,7 @@ export default function RescuePage() {
 
                             {/* Weather Alert */}
                             <button 
-                                onClick={() => handleCreateMission('Weather')}
+                                onClick={() => handleCreateMission("Weather")}
                                 className="flex flex-col items-center gap-4 p-6 rounded-xl border-2 border-slate-100 hover:border-blue-100 hover:bg-blue-50 transition-all group"
                             >
                                 <div className="w-16 h-16 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -451,10 +511,10 @@ export default function RescuePage() {
                   ) : (
                       <div className="flex flex-col h-[80vh]">
                           {/* Fixed Header */}
-                          <div className="px-6 py-3 bg-amber-50 border-b border-amber-100 flex items-center justify-between shrink-0">
-                              <div className="flex items-center gap-2 text-amber-800">
+                          <div className={`px-6 py-3 border-b flex items-center justify-between shrink-0 ${draftType === "Health" ? "bg-red-50 border-red-100 text-red-800" : draftType === "Weather" ? "bg-blue-50 border-blue-100 text-blue-800" : "bg-amber-50 border-amber-100 text-amber-800"}`}>
+                              <div className="flex items-center gap-2">
                                   <ShieldAlert className="w-5 h-5 animate-pulse" /> 
-                                  <span className="font-bold">Crowd Density Simulation Detected</span>
+                                  <span className="font-bold">{draftType ? MISSION_COPY[draftType].title : "Mission"} · {missionLocation?.address || "Locating..."}</span>
                               </div>
                               <button onClick={() => setShowStampedeMap(false)} className="text-sm font-medium text-slate-500 hover:text-slate-800 underline">Back</button>
                           </div>
@@ -493,12 +553,12 @@ export default function RescuePage() {
                           {/* Fixed Footer */}
                           {/* Fixed Footer */}
                           <div className="p-4 bg-white border-t flex justify-end gap-3 shrink-0">
-                              <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg">Cancel</button>
+                              <button onClick={() => { setIsModalOpen(false); setDraftType(null); }} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg">Cancel</button>
                               <button 
-                                onClick={dispatchStampedeAlert}
-                                disabled={isAnalyzing}
+                                onClick={dispatchMission}
+                                disabled={isAnalyzing || !missionLocation}
                                 className={`px-4 py-2 font-bold rounded-lg flex items-center gap-2 transition-all ${
-                                    isAnalyzing 
+                                    isAnalyzing || !missionLocation
                                     ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
                                     : 'bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-500/30'
                                 }`}
@@ -506,11 +566,11 @@ export default function RescuePage() {
                                   {isAnalyzing ? (
                                       <>
                                         <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin"></div>
-                                        Wait for AI...
+                                        Preparing plan...
                                       </>
                                   ) : (
                                       <>
-                                        <AlertTriangle className="w-4 h-4" /> Dispatch Crowd Control
+                                        <AlertTriangle className="w-4 h-4" /> {draftType ? MISSION_COPY[draftType].dispatch : "Dispatch"}
                                       </>
                                   )}
                               </button>

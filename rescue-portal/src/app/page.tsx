@@ -107,8 +107,8 @@ export default function RescueHome() {
                         <Wind className="w-6 h-6 text-red-600" />
                     </div>
                     <div>
-                        <h3 className="font-bold text-lg">CRITICAL WEATHER / CROWD ALERT</h3>
-                        <p className="text-red-100 text-sm">New high-priority dispatch received via Admin Command.</p>
+                        <h3 className="font-bold text-lg">{missions.find(m => m.priority === 'CRITICAL' && m.time === 'Just Now')?.type || "New dispatch"}</h3>
+                        <p className="text-red-100 text-sm">{missions.find(m => m.priority === 'CRITICAL' && m.time === 'Just Now')?.location || "New high-priority dispatch from Rescue Operations."}</p>
                     </div>
                 </div>
                 <button 

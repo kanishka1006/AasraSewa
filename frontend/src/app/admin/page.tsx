@@ -19,10 +19,21 @@ export default function AdminDashboard() {
     { label: "Low Battery", value: "128", change: "Need Charging", icon: Battery, color: "orange" },
   ];
 
-  // Dummy data for map pre-demo
+  const now = new Date().toISOString();
   const mapData = [
-     { id: '1', name: 'User A', lat: 28.61, lon: 77.21, sos: false, role: 'CITIZEN', lastUpdate: new Date().toISOString() },
-     { id: '2', name: 'User B', lat: 28.62, lon: 77.22, sos: true, role: 'CITIZEN', lastUpdate: new Date().toISOString() }
+     { id: 'vd-1', name: 'Anjali Sharma', lat: 32.9917, lon: 74.9319, sos: false, role: 'CITIZEN', placeName: 'Katra, Vaishno Devi', lastUpdate: now },
+     { id: 'vd-2', name: 'Ravi Kumar', lat: 33.0012, lon: 74.9465, sos: false, role: 'VOLUNTEER', placeName: 'Banganga, Vaishno Devi', lastUpdate: now },
+     { id: 'vd-3', name: 'Meera Devi', lat: 33.0165, lon: 74.9560, sos: true, role: 'CITIZEN', placeName: 'Adhkuwari, Vaishno Devi', lastUpdate: now },
+     { id: 'vd-4', name: 'Harpreet Singh', lat: 33.0250, lon: 74.9480, sos: false, role: 'VOLUNTEER', placeName: 'Sanjichhat, Vaishno Devi', lastUpdate: now },
+     { id: 'vd-5', name: 'Kavita Joshi', lat: 33.0297, lon: 74.9486, sos: false, role: 'CITIZEN', placeName: 'Bhawan, Vaishno Devi', lastUpdate: now },
+     { id: 'vd-6', name: 'Suresh Pandit', lat: 33.0340, lon: 74.9520, sos: false, role: 'CITIZEN', placeName: 'Bhairon Mandir, Vaishno Devi', lastUpdate: now },
+     { id: 'am-1', name: 'Imran Bhat', lat: 34.0161, lon: 75.3150, sos: false, role: 'CITIZEN', placeName: 'Pahalgam, Amarnath Yatra', lastUpdate: now },
+     { id: 'am-2', name: 'Neha Kapoor', lat: 34.0528, lon: 75.4148, sos: false, role: 'VOLUNTEER', placeName: 'Chandanwari, Amarnath Yatra', lastUpdate: now },
+     { id: 'am-3', name: 'Tashi Dorje', lat: 34.0915, lon: 75.4965, sos: true, role: 'CITIZEN', placeName: 'Sheshnag, Amarnath Yatra', lastUpdate: now },
+     { id: 'am-4', name: 'Priya Nair', lat: 34.1765, lon: 75.4835, sos: false, role: 'CITIZEN', placeName: 'Panchtarni, Amarnath Yatra', lastUpdate: now },
+     { id: 'am-5', name: 'Abdul Rashid', lat: 34.2149, lon: 75.5008, sos: false, role: 'CITIZEN', placeName: 'Amarnath Cave', lastUpdate: now },
+     { id: 'am-6', name: 'Vikram Singh', lat: 34.2572, lon: 75.4128, sos: false, role: 'VOLUNTEER', placeName: 'Baltal, Amarnath Yatra', lastUpdate: now },
+     { id: 'am-7', name: 'Fatima Bano', lat: 34.2300, lon: 75.4300, sos: true, role: 'CITIZEN', placeName: 'Domail, Amarnath Yatra', lastUpdate: now },
   ];
 
   const handleDownloadReport = () => {
@@ -103,12 +114,12 @@ export default function AdminDashboard() {
         <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
            <h3 className="font-bold text-slate-800 mb-4">Recent Alerts</h3>
            <div className="space-y-4">
-              {[1,2,3,4,5].map(i => (
-                  <div key={i} className="flex items-start gap-3 p-3 hover:bg-slate-50 rounded-lg cursor-pointer">
+              {mapData.filter(user => user.sos).map(user => (
+                  <div key={user.id} className="flex items-start gap-3 p-3 hover:bg-slate-50 rounded-lg cursor-pointer">
                       <div className="w-2 h-2 rounded-full bg-red-500 mt-2"></div>
                       <div>
-                          <p className="text-sm font-semibold text-slate-700">Medical Emergency</p>
-                          <p className="text-xs text-slate-500">Sector 4 • 2 mins ago</p>
+                          <p className="text-sm font-semibold text-slate-700">{user.name}</p>
+                          <p className="text-xs text-slate-500">{user.placeName} • SOS active</p>
                       </div>
                   </div>
               ))}

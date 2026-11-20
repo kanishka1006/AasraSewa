@@ -35,6 +35,17 @@ function MapRecenter({ center }: { center: [number, number] | null }) {
     return null;
 }
 
+function FitUsers({ points, active }: { points: [number, number][]; active: boolean }) {
+    const map = useMap();
+    const key = points.map((point) => point.join(",")).join("|");
+    useEffect(() => {
+        if (!active || points.length === 0) return;
+        map.invalidateSize();
+        map.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 14, animate: false });
+    }, [key, active, map]);
+    return null;
+}
+
 export default function LiveMap({ users = [], centerOn = null }: LiveMapProps) {
   const [mapData, setMapData] = useState<MapUser[]>(users);
   const [filter, setFilter] = useState({ sosOnly: false, showVolunteers: true, showCitizens: true });
@@ -53,7 +64,7 @@ export default function LiveMap({ users = [], centerOn = null }: LiveMapProps) {
   });
 
   return (
-    <div className="relative w-full h-full min-h-[500px] rounded-lg overflow-hidden border border-gray-200 shadow-lg">
+    <div className="relative w-full h-full rounded-lg overflow-hidden border border-gray-200 shadow-lg">
       
       {/* Filters Overlay */}
       <div 
@@ -98,9 +109,10 @@ export default function LiveMap({ users = [], centerOn = null }: LiveMapProps) {
         center={[28.6139, 77.2090]} // Default: New Delhi
         zoom={13} 
         scrollWheelZoom={true} 
-        className="w-full h-full min-h-[500px]"
+        className="w-full h-full"
       >
         <MapRecenter center={centerOn} />
+        <FitUsers points={filteredUsers.map((user) => [user.lat, user.lon])} active={!centerOn} />
         
         <TileLayer
           attribution='&copy; <a href="https://www.flsm.dev">AasraSewa</a>'
