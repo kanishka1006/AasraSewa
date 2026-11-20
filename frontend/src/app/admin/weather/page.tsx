@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { CloudRain, Sun, Wind, Thermometer, Droplets, ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CloudRain, Sun, Wind, Droplets } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiUrl } from "@/lib/api";
 
@@ -124,16 +124,30 @@ const fetchWeatherPrediction = async (location: string) => {
 
 export default function WeatherPage() {
   const [location, setLocation] = useState("Katra, Vaishno Devi");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
 
-  const handlePredict = async (place = location) => {
-      setLocation(place);
+  useEffect(() => {
+      const place = location.trim();
+      if (!place) {
+          setData(null);
+          setLoading(false);
+          return;
+      }
+      let cancelled = false;
       setLoading(true);
-      const result = await fetchWeatherPrediction(place);
-      setData(result);
-      setLoading(false);
-  };
+      const timer = setTimeout(async () => {
+          const result = await fetchWeatherPrediction(place);
+          if (!cancelled) {
+              setData(result);
+              setLoading(false);
+          }
+      }, 400);
+      return () => {
+          cancelled = true;
+          clearTimeout(timer);
+      };
+  }, [location]);
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
@@ -149,7 +163,7 @@ export default function WeatherPage() {
                 <button
                     key={place.label}
                     type="button"
-                    onClick={() => handlePredict(place.label)}
+                    onClick={() => setLocation(place.label)}
                     disabled={loading}
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
                         location === place.label
@@ -166,25 +180,9 @@ export default function WeatherPage() {
                 type="text" 
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handlePredict(); }}
                 className="px-4 py-3 outline-none bg-transparent w-full md:w-80 text-lg text-slate-700 placeholder:text-slate-400"
                 placeholder="Katra, Vaishno Devi..."
             />
-            <button 
-                onClick={() => handlePredict()}
-                disabled={loading}
-                className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors flex items-center gap-2 whitespace-nowrap disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-blue-500/30"
-            >
-                {loading ? (
-                    <>
-                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                     Analyzing...
-                    </>
-                ) : (
-                    <>Generate <ArrowRight className="w-5 h-5" /></>
-                )}
-            </button>
-            
             <button
                 onClick={() => {
                     setLoading(true);
@@ -215,14 +213,23 @@ export default function WeatherPage() {
       </div>
 
       <AnimatePresence mode="wait">
+        {loading && !data && (
+             <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                className="h-64 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50"
+            >
+                 <div className="w-8 h-8 border-2 border-slate-300 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+                 <p className="text-lg font-medium">Loading forecast for {location}</p>
+             </motion.div>
+        )}
+
         {!data && !loading && (
              <motion.div 
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                 className="h-64 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50"
             >
                  <CloudRain className="w-16 h-16 mb-4 opacity-30" />
-                 <p className="text-lg font-medium">Enter a location above to generate a micro-weather forecast</p>
-                 <p className="text-sm opacity-60">Try &quot;Katra, Vaishno Devi&quot; or tap a place chip above</p>
+                 <p className="text-lg font-medium">Enter a location to see the forecast</p>
              </motion.div>
         )}
 

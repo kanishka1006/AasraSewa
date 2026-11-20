@@ -77,6 +77,7 @@ export default function IotMonitor() {
   }));
   const showValue = (value: number | undefined, unit: string) =>
     typeof value === "number" && Number.isFinite(value) ? `${value}${unit}` : "Not reported";
+  const publisherName = (source: string) => (source === "esp32" ? "Band No: 25" : source);
 
   return (
     <div className="space-y-6">
@@ -101,7 +102,7 @@ export default function IotMonitor() {
             {readings.map(reading => (
               <tr key={reading.bandId} className="border-t border-slate-100">
                 <td className="p-3 font-medium text-slate-900">{reading.userName}<br /><code className="text-xs text-slate-500">{reading.bandId}</code></td>
-                <td className="p-3">{reading.source}</td>
+                <td className="p-3">{publisherName(reading.source)}</td>
                 <td className="p-3">{new Date(reading.ts).toLocaleTimeString()}<br /><span className="text-slate-500">{Date.now() - Date.parse(reading.ts) > 15000 ? "Stale (>15s)" : "Recent (<15s)"}</span></td>
                 <td className="p-3 font-mono text-xs">{reading.lat.toFixed(5)}, {reading.lon.toFixed(5)}</td>
                 <td className="p-3">{showValue(reading.heartRate, " bpm")}</td>
