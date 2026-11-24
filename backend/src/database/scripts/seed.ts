@@ -15,6 +15,7 @@ export const seedDatabase = async (connection: Connection) => {
     const rolesData = [
         { name: UserRole.ADMIN, description: 'System Administrator', permissions: { all: true } },
         { name: UserRole.SHELTER_MANAGER, description: 'Manages Shelter Inventory', permissions: { view_all: false, manage_shelter: true } },
+        { name: UserRole.RESCUER, description: 'Field responder dispatched to an SOS', permissions: { sos: true, respond: true } },
         { name: UserRole.CITIZEN, description: 'Regular User', permissions: { sos: true } },
     ];
 
@@ -32,7 +33,7 @@ export const seedDatabase = async (connection: Connection) => {
     const salt = await bcrypt.genSalt();
     const hash = await bcrypt.hash(password, salt);
 
-    let adminUser = await userModel.findOne({ phoneNumber: '+919999999999' });
+    let adminUser = await userModel.findOne({ phoneNumber: '+919999999999' }).select('+passwordHash');
     if (!adminUser) {
         adminUser = await userModel.create({
             fullName: 'System Admin',
@@ -42,6 +43,7 @@ export const seedDatabase = async (connection: Connection) => {
             isSafe: true,
         });
     }
+    const demoHash = adminUser.passwordHash || hash;
 
     let citizenUser = await userModel.findOne({ phoneNumber: '+919876543210' });
     if (!citizenUser) {
@@ -110,6 +112,36 @@ export const seedDatabase = async (connection: Connection) => {
 
         band1.status = BandStatus.RENTED;
         await band1.save();
+    }
+
+    let responder = await userModel.findOne({ phoneNumber: '+919000000001' });
+    if (!responder) {
+        await userModel.create({
+            fullName: 'Field Responder',
+            phoneNumber: '+919000000001',
+            passwordHash: demoHash,
+            role: savedRoles[UserRole.RESCUER]._id,
+            isSafe: true,
+            lastKnownLocation: {
+                lat: 28.62,
+                lon: 77.215,
+                type: 'Point',
+                coordinates: [77.215, 28.62],
+            },
+        });
+    }
+
+    const shelterSpecs = [
+        { name: 'Rajpath Relief Tent', lat: 28.616, lon: 77.212, powerSource: 'SOLAR' },
+        { name: 'Katra Shelter', lat: 32.993, lon: 74.934, powerSource: 'SOLAR' },
+        { name: 'Sheshnag Medical Post', lat: 34.093, lon: 75.498, powerSource: 'SOLAR' },
+    ];
+    const shelters = connection.collection('shelters');
+    for (const spec of shelterSpecs) {
+        const existing = await shelters.findOne({ name: spec.name });
+        if (!existing) {
+            await shelters.insertOne({ ...spec, bands: [], status: 'OPEN', createdAt: new Date(), updatedAt: new Date() });
+        }
     }
 
     console.log('✅ Database Seeded Successfully');

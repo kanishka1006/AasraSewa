@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { apiBase } from "@/lib/api";
+import { apiBase, authFetch } from "@/lib/api";
 
 const LiveMap = dynamic(() => import("@/components/Map/LiveMap"), { ssr: false });
 
@@ -46,7 +46,7 @@ export default function IotMonitor() {
       try {
         const options = { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal };
         const [locations, emergencies] = await Promise.all([
-          fetch(`${apiBase()}/location/latest`, options), fetch(`${apiBase()}/sos/active`, options)
+          authFetch(`${apiBase()}/location/latest`, options), authFetch(`${apiBase()}/sos/active`, options)
         ]);
         if (locations.status === 401 || emergencies.status === 401) throw new Error("Session expired. Sign in again.");
         if (!locations.ok || !emergencies.ok) throw new Error("Unable to refresh device data.");
@@ -72,7 +72,7 @@ export default function IotMonitor() {
 
   const resolveAlert = async (id: string) => {
     try {
-      const response = await fetch(`${apiBase()}/sos/status`, {
+      const response = await authFetch(`${apiBase()}/sos/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` },
         body: JSON.stringify({ alertId: id, status: "RESOLVED", notes: "Resolved from IoT monitor" })

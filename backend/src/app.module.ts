@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { BandModule } from './bands/bands.module';
 import { LocationModule } from './location/location.module';
 import { SosModule } from './sos/sos.module';
+import { NetworkModule } from './network/network.module';
 
 import { AlertsController } from './alerts/alerts.controller';
 import { GeminiModule } from './gemini/gemini.module';
@@ -22,6 +23,7 @@ import { LoggerModule } from './logger/logger.module';
         BandModule,
         LocationModule,
         SosModule,
+        NetworkModule,
         GeminiModule,
     ],
     controllers: [AlertsController],

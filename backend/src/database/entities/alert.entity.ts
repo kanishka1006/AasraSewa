@@ -43,6 +43,24 @@ export class SosAlert {
     @Prop()
     notes: string;
 
+    @Prop()
+    trigger: string;
+
+    @Prop()
+    reason: string;
+
+    @Prop()
+    eventCode: number;
+
+    @Prop()
+    shelterName: string;
+
+    @Prop()
+    distanceMeters: number;
+
+    @Prop()
+    checkedIn: boolean;
+
     @Prop({ type: Date })
     resolvedAt: Date;
 }

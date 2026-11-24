@@ -170,7 +170,7 @@ GitHub if asked: `https://github.com/kanishka1006/AasraSewa`
 | Speaker 1 | 20s intro + problem/solution + closing |
 | Speaker 2 | Clicks Demo A (band + IoT Monitor) |
 | Speaker 3 | Clicks Demo B (stampede + portal) |
-| Host laptop owner | Keeps `npm start` + gateway alive; re-login if JWT expires (~15 min) |
+| Host laptop owner | Keeps `npm start` + gateway alive; re-login if JWT expires (access tokens last 7 days) |
 
 ---
 

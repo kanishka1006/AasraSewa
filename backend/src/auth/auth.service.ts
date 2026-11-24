@@ -65,14 +65,35 @@ export class AuthService {
         return this.generateTokens(user as UserDocument & { role: any });
     }
 
-    private async generateTokens(user: UserDocument & { role: any }) {
+    async refresh(refreshToken: string) {
+        if (!refreshToken) {
+            throw new UnauthorizedException('Refresh token required');
+        }
+        let payload: { sub?: string; role?: string; type?: string };
+        try {
+            payload = this.jwtService.verify(refreshToken);
+        } catch {
+            throw new UnauthorizedException('Invalid refresh token');
+        }
+        if (payload?.type !== 'refresh' || !payload.sub) {
+            throw new UnauthorizedException('Invalid refresh token');
+        }
+        const user = await this.userModel.findById(payload.sub).populate('role').exec();
+        if (!user) {
+            throw new UnauthorizedException('User no longer exists');
+        }
+        return this.generateTokens(user as UserDocument & { role: any });
+    }
+
+    private generateTokens(user: UserDocument & { role: any }) {
         const roleName = user.role?.name || UserRole.CITIZEN;
-        const payload = { sub: user._id || user.id, role: roleName };
+        const subject = String(user._id || user.id);
+        const payload = { sub: subject, role: roleName };
         return {
-            accessToken: this.jwtService.sign(payload, { expiresIn: '15m' }),
-            refreshToken: this.jwtService.sign(payload, { expiresIn: '7d' }),
+            accessToken: this.jwtService.sign({ ...payload, type: 'access' }, { expiresIn: '7d' }),
+            refreshToken: this.jwtService.sign({ ...payload, type: 'refresh' }, { expiresIn: '30d' }),
             user: {
-                id: user._id || user.id,
+                id: subject,
                 fullName: user.fullName,
                 role: roleName,
             }

@@ -46,7 +46,7 @@ Docker is optional: `docker compose -p aasrasewa-local -f docker/docker-compose.
 | Package or MongoDB download fails | Confirm Internet/proxy access, retry setup, and inspect output. MongoDB binaries must support the host OS. |
 | A port is occupied | Stop the previous stack in its terminal. The launcher will not kill unrelated processes. |
 | A service exits | Read its log under `logs/`; the launcher stops the services it started. |
-| Browser shows 401 | Sign in again. Access tokens last 15 minutes. |
+| Browser shows 401 | Sign in again. Access tokens last 7 days. |
 | Packet stored but not on the map | Match the topic band alias and ensure an ACTIVE rental links it to a wearer. |
 | No sensor measurements | Use numeric coordinates and Unix seconds; wait for Wi-Fi, MQTT, NTP and a GPS fix. |
 | SOS reappears after resolution | Stop sending `sos: true`; release and debounce the button before resolving. |

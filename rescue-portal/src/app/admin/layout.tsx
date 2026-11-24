@@ -12,7 +12,8 @@ import {
   LogOut,
   Menu,
   X,
-  CloudRain
+  CloudRain,
+  Network
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -22,6 +23,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const links = [
     { href: "/admin", label: "Overview", icon: Activity },
+    { href: "/admin/network", label: "Aasra Network", icon: Network },
     { href: "/admin/rescue", label: "Rescue Ops", icon: Radio },
     { href: "/admin/map", label: "Live Map", icon: Map },
     { href: "/admin/weather", label: "Weather AI", icon: CloudRain },

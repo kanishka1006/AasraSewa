@@ -20,7 +20,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     async validate(payload: any) {
-        // Payload contains { sub: userId, role: roleName }
+        // Refresh tokens are not access tokens. Payloads with no type stay valid until they expire.
+        if (payload?.type === 'refresh') {
+            throw new UnauthorizedException('Refresh token cannot be used as an access token');
+        }
         const user = await this.userModel.findById(payload.sub).populate('role').exec();
 
         if (!user) {

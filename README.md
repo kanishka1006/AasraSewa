@@ -28,7 +28,7 @@ On Git Bash / macOS / Linux you can also run `./start-demo.sh` (starts the stack
 | Backend API | http://localhost:3001 |
 | AI API documentation | http://localhost:8000/docs |
 
-Demo administrator: **`+919999999999` / `password123`**. These are seeded demonstration credentials, not deployment credentials. Access tokens expire after 15 minutes; sign in again when asked.
+Demo administrator: **`+919999999999` / `password123`**. These are seeded demonstration credentials, not deployment credentials. Access tokens last 7 days. A refresh token lasts 30 days and renews the session after a 401.
 
 ## Verify the complete software flow
 

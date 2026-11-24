@@ -17,6 +17,10 @@ export interface IoTTelemetryPayload {
     // Device Status
     bat: number;  // Battery % (0-100)
     sos: boolean; // false = heartbeat, true = EMERGENCY
+
+    bp?: number;   // Systolic blood pressure
+    code?: number; // Device event code (13 HR, 14 SpO2, 15 temperature, 16 fall)
+    src?: string;  // Packet source label
 }
 
 // Example Minified JSON (Payload < 90 bytes)

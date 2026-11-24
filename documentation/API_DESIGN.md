@@ -2,8 +2,8 @@
 ## 1. Security & Authentication Strategy
 *   **Protocol**: HTTPS (TLS 1.3) enforced.
 *   **Authentication**: Stateless **JWT (JSON Web Tokens)**.
-    *   `Access-Token`: Short-lived (15 mins). Sent in `Authorization: Bearer <token>` header.
-    *   `Refresh-Token`: Long-lived (7 days). Stored in `httpOnly`, `secure` cookies to prevent XSS.
+    *   `Access-Token`: Valid for 7 days (`type: access`). Sent in `Authorization: Bearer <token>` header.
+    *   `Refresh-Token`: Valid for 30 days (`type: refresh`). Send `{ "refreshToken" }` to `POST /auth/refresh`. A refresh token is rejected when it is presented as a Bearer access token.
 *   **RBAC (Role-Based Access Control)**:
     *   Middleware checks user `role` claim in JWT against allowed roles for the route.
     *   **Roles**: `ADMIN`, `SHELTER_MANAGER`, `RESCUER`, `CITIZEN`.

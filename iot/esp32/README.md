@@ -109,7 +109,7 @@ be used for this demo even if the board's physical Wi-Fi MAC is different.
 ## Verify the demo
 
 1. Sign in at http://localhost:3002/login with `+919999999999` / `password123`,
-   then open **IoT Monitor**. Tokens expire after 15 minutes; sign in again if asked.
+   then open **IoT Monitor**. Tokens last 7 days; sign in again if asked.
 2. Power the ESP32. Serial Monitor should report `Aasra MQTT connected`.
 3. Confirm its row changes from **simulator** to **esp32**, timestamps advance,
    and displayed values match the sensor values printed by your sketch. The

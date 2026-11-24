@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Loader2, Lock, ArrowRight } from "lucide-react";
-import { apiUrl } from "@/lib/api";
+import { apiUrl, saveSession } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,8 +28,7 @@ export default function LoginPage() {
       if (!res.ok) throw new Error("Invalid credentials");
 
       const data = await res.json();
-      localStorage.setItem("token", data.accessToken);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      saveSession(data);
 
       // Redirect based on role
       if (data.user.role === "ADMIN" || data.user.role === "SHELTER_MANAGER") {

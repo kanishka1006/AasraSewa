@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from "framer-motion";
 import { Shield, Activity, Lock, ArrowLeft, Loader2 } from "lucide-react";
 import Image from "next/image";
-import { apiUrl } from "@/lib/api";
+import { apiUrl, saveSession } from "@/lib/api";
 
 // --- 3D Background Grid ---
 function RetroGrid() {
@@ -96,8 +96,7 @@ export default function LandingLoginPage() {
       if (!res.ok) throw new Error("Access Denied: Invalid Credentials");
 
       const data = await res.json();
-      localStorage.setItem("token", data.accessToken);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      saveSession(data);
 
       if (data.user.role === "ADMIN" || data.user.role === "SHELTER_MANAGER") {
         router.push("/admin");
