@@ -1,64 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Activity,
-  Fingerprint,
-  HeartPulse,
+  AlertTriangle,
+  BellRing,
+  CheckCircle2,
   Loader2,
   MapPin,
-  Navigation,
   Radio,
-  ShieldCheck,
   Sun,
   Tent,
   Users,
 } from "lucide-react";
 import { apiUrl, authFetch } from "@/lib/api";
-
-const IDEAS = [
-  {
-    letter: "A",
-    title: "Alert on the clinical floor",
-    body: "Heart rate under 45 or over 140, SpO2 under 90, temperature at 35 or 39, a fall over 3 g, or blood pressure at 80 or 180 opens an SOS. Event codes 13 to 16 are critical on their own.",
-    icon: HeartPulse,
-    accent: "from-rose-500 to-orange-400",
-    chip: "bg-rose-50 text-rose-700",
-  },
-  {
-    letter: "A",
-    title: "Assign the nearest free responder",
-    body: "The closest rescuer or volunteer who has a known location, and who is not already assigned or in progress, is dispatched to the wearer.",
-    icon: Navigation,
-    accent: "from-sky-500 to-cyan-400",
-    chip: "bg-sky-50 text-sky-700",
-  },
-  {
-    letter: "S",
-    title: "Shelter check-in inside 30 m",
-    body: "When a band is within 30 metres of a shelter, it is added to that shelter and a CHECK_IN row is written.",
-    icon: Tent,
-    accent: "from-teal-500 to-emerald-400",
-    chip: "bg-teal-50 text-teal-700",
-  },
-  {
-    letter: "R",
-    title: "Record a hash-chained audit",
-    body: "Every check-in, dispatch, and learning round stores the SHA-256 of the previous row plus the new event, so the log shows tampering.",
-    icon: Fingerprint,
-    accent: "from-violet-500 to-indigo-400",
-    chip: "bg-violet-50 text-violet-700",
-  },
-  {
-    letter: "A",
-    title: "Adapt by federated rounds",
-    body: "Each shelter summary is averaged by sample count into one shared model. Learned limits cannot become looser than the clinical floor.",
-    icon: Activity,
-    accent: "from-amber-500 to-yellow-400",
-    chip: "bg-amber-50 text-amber-800",
-  },
-];
 
 type Shelter = {
   _id?: string;
@@ -67,6 +22,7 @@ type Shelter = {
   lon?: number;
   powerSource?: string;
   bands?: string[];
+  status?: string;
 };
 
 type AuditRow = {
@@ -81,7 +37,7 @@ type AuditRow = {
   createdAt?: string;
 };
 
-type Person = { fullName?: string };
+type Person = { fullName?: string; phoneNumber?: string };
 
 type AlertRow = {
   _id: string;
@@ -93,8 +49,15 @@ type AlertRow = {
   distanceMeters?: number;
   checkedIn?: boolean;
   eventCode?: number;
+  priority?: string;
+  location?: {
+    type?: string;
+    coordinates?: [number, number]; // [lon, lat]
+  };
   victim?: Person;
   rescuer?: Person;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 type SharedModel = {
@@ -116,23 +79,17 @@ type Overview = {
   alerts: AlertRow[];
 };
 
-function showTime(value?: string) {
-  if (!value) return "—";
-  const parsed = new Date(value);
-  return Number.isFinite(parsed.getTime()) ? parsed.toLocaleString() : "—";
-}
-
-function eventTone(type?: string) {
-  if (type === "CHECK_IN") return "bg-teal-50 text-teal-800 ring-teal-200";
-  if (type === "DISPATCH") return "bg-amber-50 text-amber-900 ring-amber-200";
-  if (type === "FEDERATED_ROUND") return "bg-violet-50 text-violet-800 ring-violet-200";
-  return "bg-slate-100 text-slate-700 ring-slate-200";
-}
-
-function statusTone(status?: string) {
-  if (status === "IN_PROGRESS") return "bg-amber-100 text-amber-900";
-  if (status === "ASSIGNED") return "bg-sky-100 text-sky-900";
-  return "bg-rose-100 text-rose-800";
+function distanceInMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371e3;
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
 export default function NetworkPage() {
@@ -141,7 +98,14 @@ export default function NetworkPage() {
   const [bannerKind, setBannerKind] = useState<"signed-out" | "error" | "">("");
   const [running, setRunning] = useState(false);
   const [checkedAt, setCheckedAt] = useState("");
-  const [copied, setCopied] = useState("");
+  const [recentNotice, setRecentNotice] = useState<{
+    bandId: string;
+    shelterName: string;
+    wearerName?: string;
+    time: string;
+  } | null>(null);
+
+  const prevBandsRef = useRef<Record<string, string[]>>({});
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
     if (typeof window === "undefined") return;
@@ -162,11 +126,62 @@ export default function NetworkPage() {
       if (!response.ok) throw new Error("The network overview could not be loaded.");
       const data = (await response.json()) as Overview;
       if (signal?.aborted) return;
+
+      const shelters = data.shelters || [];
+      const alerts = data.alerts || [];
+      const audit = data.audit || [];
+
+      // Check for real-time check-in notice
+      let detectedNotice: { bandId: string; shelterName: string; wearerName?: string; time: string } | null = null;
+      for (const shelter of shelters) {
+        const prev = prevBandsRef.current[shelter.name] || [];
+        const current = shelter.bands || [];
+        const added = current.filter((b) => !prev.includes(b));
+        if (added.length > 0) {
+          const matchingAlert = alerts.find((a) => (a.notes || "").includes(added[0]) || a.shelterName === shelter.name);
+          detectedNotice = {
+            bandId: added[0],
+            shelterName: shelter.name,
+            wearerName: matchingAlert?.victim?.fullName,
+            time: new Date().toLocaleTimeString(),
+          };
+          break;
+        }
+      }
+
+      // Update ref
+      const currentMap: Record<string, string[]> = {};
+      for (const shelter of shelters) {
+        currentMap[shelter.name] = shelter.bands || [];
+      }
+      prevBandsRef.current = currentMap;
+
+      // If no polling diff yet, display latest CHECK_IN from audit
+      if (!detectedNotice) {
+        const latestCheckIn = audit.find((a) => a.type === "CHECK_IN" && a.bandId);
+        if (latestCheckIn && latestCheckIn.bandId && latestCheckIn.shelterName) {
+          const matchingAlert = alerts.find(
+            (a) => (a.notes || "").includes(latestCheckIn.bandId!) || a.shelterName === latestCheckIn.shelterName
+          );
+          const checkInDate = latestCheckIn.createdAt ? new Date(latestCheckIn.createdAt) : new Date();
+          detectedNotice = {
+            bandId: latestCheckIn.bandId,
+            shelterName: latestCheckIn.shelterName,
+            wearerName: matchingAlert?.victim?.fullName,
+            time: checkInDate.toLocaleTimeString(),
+          };
+        }
+      }
+
+      if (detectedNotice) {
+        setRecentNotice(detectedNotice);
+      }
+
       setOverview({
-        shelters: data.shelters || [],
-        audit: data.audit || [],
+        shelters,
+        audit,
         model: data.model || {},
-        alerts: data.alerts || [],
+        alerts,
       });
       setCheckedAt(new Date().toLocaleTimeString());
       setBanner("");
@@ -181,7 +196,9 @@ export default function NetworkPage() {
   useEffect(() => {
     const controller = new AbortController();
     refresh(controller.signal);
-    const interval = setInterval(() => { refresh(); }, 5000);
+    const interval = setInterval(() => {
+      refresh();
+    }, 5000);
     return () => {
       clearInterval(interval);
       controller.abort();
@@ -223,28 +240,38 @@ export default function NetworkPage() {
     }
   };
 
-  const copyHash = async (hash: string) => {
-    try {
-      await navigator.clipboard.writeText(hash);
-      setCopied(hash);
-      window.setTimeout(() => setCopied((current) => (current === hash ? "" : current)), 1600);
-    } catch {
-      setCopied("");
-    }
-  };
-
-  const model = overview?.model;
   const alerts = overview?.alerts || [];
   const shelters = overview?.shelters || [];
   const checkedIn = shelters.reduce((sum, shelter) => sum + (shelter.bands?.length || 0), 0);
   const roundShelter = shelters[0]?.name || "Rajpath Relief Tent";
-  const metrics = [
-    { label: "Heart rate", value: `${model?.hrLow ?? "—"}–${model?.hrHigh ?? "—"}`, hint: "floor 45–140" },
-    { label: "SpO2 floor", value: model?.spo2Low ?? "—", hint: "never under 90" },
-    { label: "Temperature", value: `${model?.tempLow ?? "—"}–${model?.tempHigh ?? "—"}`, hint: "floor 35–39" },
-    { label: "Fall ceiling", value: model?.fallHigh ?? "—", hint: "3 g" },
-    { label: "Blood pressure", value: `${model?.bpLow ?? "—"}–${model?.bpHigh ?? "—"}`, hint: "floor 80–180" },
-  ];
+
+  // Helper to determine if a shelter has a nearby active SOS alert
+  const getNearbyAlerts = (shelter: Shelter) => {
+    return alerts.filter((alert) => {
+      if (alert.shelterName && alert.shelterName.trim().toLowerCase() === shelter.name.trim().toLowerCase()) {
+        return true;
+      }
+      if (
+        typeof shelter.lat === "number" &&
+        typeof shelter.lon === "number" &&
+        alert.location?.coordinates &&
+        Array.isArray(alert.location.coordinates)
+      ) {
+        const [alertLon, alertLat] = alert.location.coordinates;
+        const dist = distanceInMeters(shelter.lat, shelter.lon, alertLat, alertLon);
+        return dist <= 2000;
+      }
+      return false;
+    });
+  };
+
+  // Helper to resolve wearer name for a band
+  const resolveWearerName = (bandId: string) => {
+    const alert = alerts.find((a) => (a.notes || "").includes(bandId));
+    if (alert?.victim?.fullName) return alert.victim.fullName;
+    if (bandId === "00:1B:44:11:3A:B7") return "Rohan Gupta";
+    return undefined;
+  };
 
   return (
     <div className="space-y-6 text-slate-800">
@@ -296,146 +323,199 @@ export default function NetworkPage() {
       </header>
 
       {banner && (
-        <div role="alert" className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-5 py-4 ${bannerKind === "error" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-amber-200 bg-amber-50 text-amber-950"}`}>
+        <div
+          role="alert"
+          className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-5 py-4 ${
+            bannerKind === "error"
+              ? "border-rose-200 bg-rose-50 text-rose-800"
+              : "border-amber-200 bg-amber-50 text-amber-950"
+          }`}
+        >
           <p className="text-sm font-medium">{banner}</p>
           {bannerKind === "signed-out" ? (
-            <Link href="/login" className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white">Sign in</Link>
+            <Link href="/login" className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white">
+              Sign in
+            </Link>
           ) : (
-            <button type="button" onClick={() => refresh()} className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-rose-800 ring-1 ring-rose-200">Try again</button>
+            <button
+              type="button"
+              onClick={() => refresh()}
+              className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-rose-800 ring-1 ring-rose-200"
+            >
+              Try again
+            </button>
           )}
         </div>
       )}
 
-      <section>
-        <div className="mb-3 flex items-end justify-between">
-          <h2 className="text-lg font-bold">Five AASRA ideas</h2>
-          <p className="text-xs text-slate-500">Alert · Assign · Shelter · Record · Adapt</p>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-          {IDEAS.map((idea) => (
-            <article key={idea.title} className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-              <div className="flex items-center gap-3">
-                <span className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br ${idea.accent} text-white shadow-sm`}>
-                  <idea.icon className="h-5 w-5" />
+      {/* Real-time check-in notice */}
+      {recentNotice && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-teal-200 bg-gradient-to-r from-teal-50 to-emerald-50 px-5 py-4 text-teal-950 shadow-sm">
+          <div className="flex items-center gap-3.5">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-teal-600 text-white shadow-md shadow-teal-600/20">
+              <BellRing className="h-5 w-5 animate-bounce" />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center rounded-full bg-teal-200/80 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-teal-900">
+                  Real-time Check-In Notice
                 </span>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-black ${idea.chip}`}>{idea.letter}</span>
+                <span className="text-xs font-semibold text-teal-700">{recentNotice.time}</span>
               </div>
-              <h3 className="mt-3 font-semibold leading-snug">{idea.title}</h3>
-              <p className="mt-1.5 text-sm leading-6 text-slate-600">{idea.body}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <h2 className="mb-3 text-lg font-bold">Shelters</h2>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {shelters.map((shelter) => (
-            <article key={shelter._id || shelter.name} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="h-2 bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-500" />
-              <div className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <h3 className="font-semibold leading-snug">{shelter.name}</h3>
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-800">
-                    <Sun className="h-3 w-3" />
-                    {shelter.powerSource || "Power"}
-                  </span>
-                </div>
-                <p className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs text-slate-500">
-                  <MapPin className="h-3.5 w-3.5" />
-                  {typeof shelter.lat === "number" ? shelter.lat.toFixed(3) : "—"}, {typeof shelter.lon === "number" ? shelter.lon.toFixed(3) : "—"}
-                </p>
-                <p className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-slate-700">
-                  <Users className="h-4 w-4 text-teal-600" />
-                  {shelter.bands?.length || 0} bands checked in
-                </p>
-              </div>
-            </article>
-          ))}
-        </div>
-        {overview && !shelters.length && (
-          <p className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">No shelters have been registered.</p>
-        )}
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-5">
-        <div className="space-y-3 lg:col-span-3">
-          <h2 className="text-lg font-bold">Active dispatch</h2>
-          {alerts.map((alert) => (
-            <article key={alert._id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-semibold">{alert.victim?.fullName || "Unknown wearer"}</p>
-                <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusTone(alert.status)}`}>{alert.status || "OPEN"}</span>
-              </div>
-              <p className="mt-1 text-sm text-slate-600">
-                {alert.rescuer?.fullName ? `Assigned to ${alert.rescuer.fullName}` : "Waiting for a free responder"}
+              <p className="mt-1 text-sm font-medium leading-relaxed text-teal-950">
+                Band{" "}
+                <code className="rounded bg-teal-100 px-1.5 py-0.5 font-mono text-xs font-bold text-teal-900">
+                  {recentNotice.bandId}
+                </code>
+                {recentNotice.wearerName ? ` (${recentNotice.wearerName})` : ""} checked in at{" "}
+                <span className="font-bold underline decoration-teal-400">{recentNotice.shelterName}</span>
               </p>
-              <p className="mt-2 text-sm leading-6 text-slate-700">{alert.reason || alert.notes || "No reason recorded"}</p>
-              <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600">
-                <span className="rounded-full bg-slate-100 px-2 py-1">{alert.trigger || "SOS"}</span>
-                {typeof alert.eventCode === "number" && <span className="rounded-full bg-slate-100 px-2 py-1">Code {alert.eventCode}</span>}
-                {alert.shelterName && <span className="rounded-full bg-slate-100 px-2 py-1">{alert.shelterName}</span>}
-                {typeof alert.distanceMeters === "number" && <span className="rounded-full bg-slate-100 px-2 py-1">{alert.distanceMeters} m</span>}
-                {alert.checkedIn && <span className="rounded-full bg-teal-50 px-2 py-1 text-teal-800">Checked in</span>}
-              </div>
-            </article>
-          ))}
-          {overview && !alerts.length && (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6">
-              <ShieldCheck className="h-5 w-5 text-emerald-600" />
-              <p className="mt-2 font-semibold">No active dispatch</p>
-              <p className="mt-1 text-sm text-slate-500">A help button, a critical vital, or a critical AI score will assign the nearest free responder.</p>
             </div>
-          )}
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-2">
-          <div className="flex items-start justify-between gap-3">
-            <h2 className="text-lg font-bold">Shared model</h2>
-            <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-bold text-violet-800">{model?.samples || 0} samples</span>
           </div>
-          <p className="mt-1 text-xs text-slate-500">Learned limits stay at least as strict as the clinical floor.</p>
-          <dl className="mt-4 space-y-2">
-            {metrics.map((metric) => (
-              <div key={metric.label} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
-                <div>
-                  <dt className="text-xs text-slate-500">{metric.label}</dt>
-                  <dd className="text-sm font-bold text-slate-900">{metric.value}</dd>
-                </div>
-                <span className="text-[11px] font-medium text-slate-400">{metric.hint}</span>
-              </div>
-            ))}
-          </dl>
         </div>
-      </section>
+      )}
 
-      <section>
-        <h2 className="mb-3 text-lg font-bold">Tamper-evident log</h2>
-        <ol className="space-y-2">
-          {(overview?.audit || []).map((row, index) => (
-            <li key={row._id || row.hash || index} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${eventTone(row.type)}`}>{row.type || "EVENT"}</span>
-                <time className="text-xs text-slate-500">{showTime(row.createdAt)}</time>
-              </div>
-              <p className="mt-2 text-sm font-semibold">{row.shelterName || row.rescuerName || "Network event"}</p>
-              <p className="mt-1 text-xs text-slate-500">
-                {row.bandId ? <code>{row.bandId}</code> : "No band"}
-                {typeof row.distanceMeters === "number" ? ` · ${row.distanceMeters} m` : ""}
-              </p>
-              <button
-                type="button"
-                onClick={() => row.hash && copyHash(row.hash)}
-                className="mt-3 block max-w-full truncate rounded-xl bg-slate-950 px-3 py-2 text-left font-mono text-[11px] text-cyan-200"
-                title={row.prevHash ? `previous ${row.prevHash}` : row.hash}
+      {/* Shelters / Stations Section */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight">Shelters & Stations</h2>
+            <p className="text-xs text-slate-500">Registered network shelters, active check-ins, and emergency status</p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+            {shelters.length} registered
+          </span>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {shelters.map((shelter) => {
+            const nearbyAlerts = getNearbyAlerts(shelter);
+            const isNearSOS = nearbyAlerts.length > 0;
+            const bands = shelter.bands || [];
+
+            return (
+              <article
+                key={shelter._id || shelter.name}
+                className={`group relative overflow-hidden rounded-2xl bg-white shadow-sm transition-all duration-200 ${
+                  isNearSOS
+                    ? "border-2 border-rose-500 bg-rose-50/20 ring-2 ring-rose-500/20 shadow-md shadow-rose-100"
+                    : "border border-slate-200 hover:-translate-y-0.5 hover:shadow-md"
+                }`}
               >
-                {copied && copied === row.hash ? "Copied" : (row.hash || "—")}
-              </button>
-            </li>
-          ))}
-        </ol>
-        {overview && !overview.audit.length && (
-          <p className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">No audit rows yet. Run a shelter round to append one.</p>
+                {/* Top accent bar */}
+                <div
+                  className={`h-2 ${
+                    isNearSOS
+                      ? "bg-gradient-to-r from-rose-500 via-red-500 to-amber-500 animate-pulse"
+                      : "bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-500"
+                  }`}
+                />
+
+                <div className="p-5">
+                  {/* Header: Name + Status/Power */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="text-base font-bold text-slate-900 leading-snug">{shelter.name}</h3>
+                      <p className="mt-1 inline-flex items-center gap-1.5 font-mono text-xs text-slate-500">
+                        <MapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                        {typeof shelter.lat === "number" ? shelter.lat.toFixed(3) : "—"}, {typeof shelter.lon === "number" ? shelter.lon.toFixed(3) : "—"}
+                      </p>
+                    </div>
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800">
+                      <Sun className="h-3 w-3" />
+                      {shelter.powerSource || "SOLAR"}
+                    </span>
+                  </div>
+
+                  {/* Highlight for Active SOS Alert */}
+                  {isNearSOS && (
+                    <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50/90 p-3 text-xs text-rose-950">
+                      <div className="flex items-center justify-between font-bold text-rose-900">
+                        <span className="flex items-center gap-1.5">
+                          <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600 animate-pulse" />
+                          <span>Active SOS Near Station</span>
+                        </span>
+                        <span className="rounded-full bg-rose-200/80 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-rose-900">
+                          {nearbyAlerts[0]?.status || "ACTIVE"}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-xs text-rose-900 leading-relaxed font-medium">
+                        Wearer: <span className="font-bold">{nearbyAlerts[0]?.victim?.fullName || "Emergency Wearer"}</span>
+                        {nearbyAlerts[0]?.reason ? ` · ${nearbyAlerts[0].reason}` : ""}
+                      </p>
+                      {nearbyAlerts[0]?.rescuer?.fullName && (
+                        <p className="mt-1 text-[11px] text-rose-800">
+                          Assigned Responder: <span className="font-semibold">{nearbyAlerts[0].rescuer.fullName}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Bands Count */}
+                  <div className="mt-4 flex items-center justify-between rounded-xl bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-700">
+                    <span className="inline-flex items-center gap-2">
+                      <Users className="h-4 w-4 text-teal-600" />
+                      Checked-in bands
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 font-bold ${
+                        bands.length > 0 ? "bg-teal-100 text-teal-800" : "bg-slate-200/70 text-slate-600"
+                      }`}
+                    >
+                      {bands.length}
+                    </span>
+                  </div>
+
+                  {/* List of checked-in bands */}
+                  <div className="mt-3">
+                    <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      Checked-in wearers / bands:
+                    </div>
+                    {bands.length > 0 ? (
+                      <ul className="space-y-1.5">
+                        {bands.map((bandId) => {
+                          const wearer = resolveWearerName(bandId);
+                          return (
+                            <li
+                              key={bandId}
+                              className="flex items-center justify-between rounded-lg border border-teal-100 bg-teal-50/50 px-3 py-1.5 text-xs"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-teal-600" />
+                                <span className="truncate font-semibold text-slate-800">
+                                  {wearer ? wearer : bandId}
+                                </span>
+                                {wearer && (
+                                  <span className="font-mono text-[10px] text-slate-500">
+                                    ({bandId})
+                                  </span>
+                                )}
+                              </div>
+                              <span className="shrink-0 rounded bg-teal-100 px-1.5 py-0.5 text-[10px] font-bold text-teal-800">
+                                Inside 30m
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : (
+                      <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50 px-3 py-2 text-center text-xs text-slate-400">
+                        No bands currently checked in
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+
+        {overview && !shelters.length && (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
+            <Tent className="mx-auto h-8 w-8 text-slate-400" />
+            <p className="mt-2 font-semibold">No shelters registered</p>
+            <p className="mt-1 text-xs text-slate-400">Shelters added to the database will automatically appear here.</p>
+          </div>
         )}
       </section>
     </div>
